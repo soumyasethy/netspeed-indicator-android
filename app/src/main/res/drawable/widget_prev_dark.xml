@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-picker preview for the pill/weather widgets: dark rounded card. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF101218" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item android:left="14dp" android:gravity="center_vertical">
+        <shape android:shape="rectangle">
+            <solid android:color="#CCFFFFFF" />
+            <size android:width="80dp" android:height="12dp" />
+            <corners android:radius="3dp" />
+        </shape>
+    </item>
+</layer-list>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-picker preview for the gradient hero widget. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:angle="0" android:startColor="#2563EB" android:centerColor="#7C3AED" android:endColor="#EC4899" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item android:left="14dp" android:top="16dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#CCFFFFFF" />
+            <size android:width="70dp" android:height="10dp" />
+            <corners android:radius="3dp" />
+        </shape>
+    </item>
+    <item android:left="14dp" android:top="34dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#55FFFFFF" />
+            <size android:width="40dp" android:height="6dp" />
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+</layer-list>

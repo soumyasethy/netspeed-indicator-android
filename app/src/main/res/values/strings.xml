@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NetSpeed Indicator</string>
+
+    <!-- Notification channel -->
+    <string name="channel_name">Network speed indicator</string>
+    <string name="channel_desc">Shows live download/upload speed in the status bar.</string>
+
+    <!-- Notification content -->
+    <string name="notif_title">Network speed</string>
+    <string name="notif_down">Down %1$s</string>
+    <string name="notif_up">Up %1$s</string>
+    <string name="notif_today">Today %1$s</string>
+    <string name="notif_minimal">Speed showing in status bar</string>
+    <string name="notif_strip_label">Download now</string>
+    <string name="notif_action_pause">Pause</string>
+    <string name="notif_action_resume">Resume</string>
+    <string name="notif_action_style">Icon style</string>
+    <string name="notif_action_hide">Hide 1h</string>
+    <string name="conn_wifi">Wi-Fi</string>
+    <string name="conn_mobile">Mobile</string>
+    <string name="conn_ethernet">Ethernet</string>
+    <string name="conn_offline">Offline</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">NetSpeed Indicator</string>
+    <string name="master_switch_title">Show speed in status bar</string>
+    <string name="master_switch_subtitle">Live download speed as a status-bar icon</string>
+
+    <string name="combined_title">Show upload too</string>
+    <string name="combined_subtitle_on">Icon shows download + upload combined</string>
+    <string name="combined_subtitle_off">Icon shows download only</string>
+
+    <string name="screen_off_title">Update while screen off</string>
+    <string name="screen_off_subtitle">Keeps sampling with the screen off. Uses more battery.</string>
+
+    <string name="preview_title">Live preview</string>
+    <string name="preview_down">Download</string>
+    <string name="preview_up">Upload</string>
+    <string name="preview_idle">Start the indicator to see live speed.</string>
+
+    <string name="battery_section_title">Keep it running</string>
+    <string name="battery_ignore_button">Ignore battery optimisations</string>
+    <string name="battery_ignore_done">Battery optimisation already disabled ✓</string>
+    <string name="oem_expand">Manufacturer-specific autostart steps</string>
+
+    <string name="visibility_title">Icon not showing? (status-bar dot)</string>
+    <string name="visibility_body">Some phones (Samsung One UI, MIUI, others) collapse all notification icons into a single dot. No app can override that system display setting — flip it once and the speed icon shows for good.</string>
+    <string name="visibility_open_button">Open notification settings</string>
+
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_privacy">No internet permission — your data never leaves the device.</string>
+
+    <string name="perm_banner_title">Notifications are off</string>
+    <string name="perm_banner_body">The speed indicator is drawn as a notification icon, so it can\'t show until you allow notifications.</string>
+    <string name="perm_banner_action">Grant</string>
+    <string name="perm_rationale">NetSpeed draws the live speed as the status-bar notification icon. Allow notifications so the indicator can appear.</string>
+</resources>
