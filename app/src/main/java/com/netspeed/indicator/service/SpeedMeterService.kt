@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
@@ -74,6 +75,10 @@ class SpeedMeterService : LifecycleService() {
     private val floatingChip by lazy {
         FloatingChip(this) { x, y -> lifecycleScope.launch { repo.setFloatingChipPos(x, y) } }
     }
+
+    /** Separate renderer for the bubble: full-colour chip (no OS-tint punch-out),
+     *  higher-res so it stays crisp when scaled up by the bubble-size slider. */
+    private val bubbleRenderer = IconRenderer(sizePx = 120)
 
     private fun transparentIcon(): Bitmap =
         transparentIconBitmap ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -304,7 +309,7 @@ class SpeedMeterService : LifecycleService() {
             notifications.cancelUpload()
         }
 
-        syncFloatingChip(downShown)
+        syncFloatingChip(downShown, upShown)
 
         SpeedBus.publish(
             LiveSpeed(
@@ -325,8 +330,16 @@ class SpeedMeterService : LifecycleService() {
         persistTodayUsage(force = false)
     }
 
-    /** Shows/hides the overlay bubble per setting+permission and feeds it live text. */
-    private fun syncFloatingChip(downShown: Long) {
+    /**
+     * Shows/hides the overlay bubble per setting+permission and feeds it the SAME
+     * icon bitmap the status bar uses — but full-colour ([IconRenderer.renderChip],
+     * no OS-tint punch-out). So the bubble honours every Icon-Style choice: style,
+     * unit display, background, text/icon colour, outline, font size AND the upload
+     * value (when "show upload" / a combined style is on). A transparent background
+     * or "no outline" falls back to a legible dark pill so the chip always has a
+     * readable body to float against.
+     */
+    private fun syncFloatingChip(downShown: Long, upShown: Long) {
         val wanted = settings.floatingChip && android.provider.Settings.canDrawOverlays(this)
         if (!wanted) {
             if (floatingChip.isShown) floatingChip.hide()
@@ -335,13 +348,25 @@ class SpeedMeterService : LifecycleService() {
         if (!floatingChip.isShown) {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
+        floatingChip.applyScale(settings.floatingChipScale)   // bubble-size slider, live
+
+        val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
+        bubbleRenderer.fontScale = resources.configuration.fontScale
+        bubbleRenderer.userScale = settings.iconTextScale
+        bubbleRenderer.bgColorArgb =
+            if (Color.alpha(settings.iconBgColor) != 0) settings.iconBgColor else 0xE6101218.toInt()
+        bubbleRenderer.fgColorArgb =
+            if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
+        bubbleRenderer.unitStyle = settings.iconUnitStyle
+        bubbleRenderer.borderColorArgb = settings.iconBorderColor
+        bubbleRenderer.borderWidth = settings.iconBorderWidth
         floatingChip.update(
-            text = "↓ ${SpeedFormatter.inline(downShown)}",
-            bgColorArgb = settings.iconBgColor,
-            fgColorArgb = settings.iconFgColor,
-            borderColorArgb = settings.iconBorderColor,
-            borderWidth = settings.iconBorderWidth,
-            accentArgb = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb(),
+            bubbleRenderer.renderChip(
+                style = settings.iconStyle,
+                downBps = downShown,
+                upBps = upShown,
+                showCombined = settings.showCombined,
+            ),
         )
     }
 

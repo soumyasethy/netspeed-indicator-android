@@ -204,6 +204,37 @@ class IconRenderer(private val sizePx: Int = 96) {
         return out
     }
 
+    /**
+     * Full-colour chip for our OWN surfaces (the floating bubble) — NOT the status
+     * bar. There is no OS tint to fight here, so glyphs are painted in their real
+     * colour ON TOP of the background pill (no DST_OUT punch-out), and the chip is
+     * sized to its content (not forced square), so wide styles like side-by-side
+     * stay wide and legible. Honours icon style, unit style, colours, outline and
+     * font size exactly like the status-bar icon — what you set is what floats.
+     */
+    fun renderChip(style: IconStyle, downBps: Long, upBps: Long, showCombined: Boolean): Bitmap {
+        applyColors()
+        val content = contentFor(style, downBps, upBps, showCombined)
+        val padX = sizePx * 0.18f
+        val padY = sizePx * 0.16f
+        val w = (content.width + padX * 2f).toInt().coerceAtLeast(1)
+        val h = (content.height + padY * 2f).toInt().coerceAtLeast(1)
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val r = h * 0.34f
+        if (Color.alpha(bgColorArgb) != 0) {
+            canvas.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, bgPaint)
+        }
+        if (Color.alpha(borderColorArgb) != 0) {
+            val stroke = borderWidth * 3f
+            borderPaint.strokeWidth = stroke
+            val inset = stroke / 2f
+            canvas.drawRoundRect(inset, inset, w - inset, h - inset, r, r, borderPaint)
+        }
+        canvas.drawBitmap(content, padX, padY, chipContentPaint)
+        return out
+    }
+
     private companion object {
         /** Reference rate (888 KiB/s) for stable frame sizing — widest typical digits. */
         const val REF_BPS = 888L * 1024L

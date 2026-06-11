@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                     onIconUnitStyle = { v -> persist { repo.setIconUnitStyle(v) } },
                     onIconBorderColor = { c -> persist { repo.setIconBorderColor(c) } },
                     onIconBorderWidth = { w -> persist { repo.setIconBorderWidth(w) } },
-                    onPinWidget = ::pinDialWidget,
+                    onPinWidget = ::pinWidget,
                     onThresholdsChange = { v -> persist { repo.setTierThresholds(v) } },
                     onNamesChange = { v -> persist { repo.setTierNames(v) } },
                     onQuotaChange = { v -> persist { repo.setDailyQuotaBytes(v) } },
@@ -188,14 +188,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Asks the launcher to pin the gradient-hero widget to the home screen (API 26+). */
-    private fun pinDialWidget() {
+    /** Asks the launcher to pin the chosen widget style to the home screen (API 26+). */
+    private fun pinWidget(kind: com.netspeed.indicator.render.WidgetKind) {
+        val cls = when (kind) {
+            com.netspeed.indicator.render.WidgetKind.HERO -> com.netspeed.indicator.widget.HeroWidget::class.java
+            com.netspeed.indicator.render.WidgetKind.DIAL -> com.netspeed.indicator.widget.DialWidget::class.java
+            com.netspeed.indicator.render.WidgetKind.RINGS -> com.netspeed.indicator.widget.RingsWidget::class.java
+            com.netspeed.indicator.render.WidgetKind.PILL -> com.netspeed.indicator.widget.PillWidget::class.java
+            com.netspeed.indicator.render.WidgetKind.WEATHER -> com.netspeed.indicator.widget.WeatherWidget::class.java
+        }
         val mgr = getSystemService(android.appwidget.AppWidgetManager::class.java)
         if (mgr != null && mgr.isRequestPinAppWidgetSupported) {
-            mgr.requestPinAppWidget(
-                android.content.ComponentName(this, com.netspeed.indicator.widget.HeroWidget::class.java),
-                null, null,
-            )
+            mgr.requestPinAppWidget(android.content.ComponentName(this, cls), null, null)
         }
     }
 

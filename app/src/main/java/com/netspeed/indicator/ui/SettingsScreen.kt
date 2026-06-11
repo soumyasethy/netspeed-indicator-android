@@ -113,7 +113,7 @@ fun SettingsScreen(
     onIconUnitStyle: (com.netspeed.indicator.data.UnitStyle) -> Unit,
     onIconBorderColor: (Int) -> Unit,
     onIconBorderWidth: (Int) -> Unit,
-    onPinWidget: () -> Unit,
+    onPinWidget: (com.netspeed.indicator.render.WidgetKind) -> Unit,
     onThresholdsChange: (List<Float>) -> Unit,
     onNamesChange: (List<String>) -> Unit,
     onQuotaChange: (Long) -> Unit,
@@ -178,6 +178,12 @@ fun SettingsScreen(
             onSelect = { tap(); onSkinSelect(it) },
             modifier = Modifier.padding(bottom = 8.dp),
         )
+        // Right under the live hero: add ANY of the 5 widget styles straight to the
+        // home screen (one tap → launcher's pin prompt). No digging in menus.
+        AddToHomeRow(
+            onPin = { tap(); onPinWidget(it) },
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
 
         // Toggle thumbs adopt the accent: the live tier colour for the TIER skin,
         // or the fixed skin accent otherwise.
@@ -228,21 +234,6 @@ fun SettingsScreen(
                 onBorderColor = onIconBorderColor,
                 onBorderWidth = onIconBorderWidth,
             )
-            OutlinedButton(
-                onClick = { tap(); onPinWidget() },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            ) {
-                Icon(Icons.Filled.Widgets, contentDescription = null)
-                Spacer(Modifier.size(8.dp))
-                Text("Add hero banner to Home screen")
-            }
-            Text(
-                "Or long-press the home screen → Widgets → NetSpeed for all 5 widget styles.",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-            )
-
             Hairline()
             ToggleRow(
                 title = "Show details in notification panel",
@@ -1225,6 +1216,71 @@ private fun SkinRow(
                 }
             }
         }
+    }
+}
+
+/** Widget styles offered for one-tap pinning, in display order. */
+private val WIDGET_STYLES = listOf(
+    com.netspeed.indicator.render.WidgetKind.HERO to "Hero banner",
+    com.netspeed.indicator.render.WidgetKind.DIAL to "Dial",
+    com.netspeed.indicator.render.WidgetKind.RINGS to "Rings",
+    com.netspeed.indicator.render.WidgetKind.PILL to "Pill",
+    com.netspeed.indicator.render.WidgetKind.WEATHER to "Weather",
+)
+
+/**
+ * "Add to Home screen" chip row, sitting directly under the live hero. Each chip
+ * fires the launcher's pin-widget prompt for that widget style — so every banner
+ * the user is looking at is one tap from the home screen, no menu digging. Falls
+ * back gracefully: if the launcher doesn't support pinning, the long-press hint
+ * below still applies.
+ */
+@Composable
+private fun AddToHomeRow(
+    onPin: (com.netspeed.indicator.render.WidgetKind) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Add to Home screen",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            modifier = Modifier.padding(start = 20.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            WIDGET_STYLES.forEach { (kind, label) ->
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .selectable(selected = false, onClick = { onPin(kind) })
+                        .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Widgets,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Spacer(Modifier.size(7.dp))
+                    Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+        Text(
+            "Tap a style to drop it on your home screen, or long-press the home screen → Widgets → NetSpeed.",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+            modifier = Modifier.padding(start = 20.dp, top = 2.dp, end = 20.dp),
+        )
     }
 }
 

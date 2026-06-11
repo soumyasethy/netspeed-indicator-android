@@ -3,15 +3,12 @@ package com.netspeed.indicator.service
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.WindowManager
-import android.widget.TextView
+import android.widget.ImageView
 import com.netspeed.indicator.ui.MainActivity
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -19,9 +16,10 @@ import kotlin.math.roundToInt
 /**
  * The floating speed bubble: a small draggable chip drawn over every app via a
  * [WindowManager] overlay (requires the user-granted SYSTEM_ALERT_WINDOW
- * permission). Unlike the status-bar icon, WE own this surface — its size is
- * fully configurable and never squeezed by an OS icon slot, so the text is
- * always crisply legible.
+ * permission). It shows the SAME icon bitmap the status bar uses — rendered by
+ * [IconRenderer.renderChip] — but in full colour: because WE own this surface
+ * there is no OS tint, so the chosen icon style, unit, colours, outline, font
+ * size and upload value all render exactly as configured.
  *
  * Drag anywhere; a small movement is treated as a tap and opens the app. The
  * drop position is reported through [onDropped] so it persists across restarts.
@@ -32,24 +30,21 @@ class FloatingChip(
 ) {
 
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    private var view: TextView? = null
+    private var view: ImageView? = null
     private var params: WindowManager.LayoutParams? = null
+
+    /** Display height of the chip in dp at scale 1.0 (the bubble-size slider scales this). */
+    private var scale: Float = 1f
 
     val isShown: Boolean get() = view != null
 
     @SuppressLint("ClickableViewAccessibility")
     fun show(x: Int, y: Int, scale: Float) {
-        if (view != null) { applyScale(scale); return }
-        val density = context.resources.displayMetrics.density
-        val tv = TextView(context).apply {
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = 64f * density
-                setColor(0xE6101218.toInt())
-                setStroke((1.5f * density).roundToInt(), 0x33FFFFFF)
-            }
-            text = "↓ 0 KB/s"
+        this.scale = scale
+        if (view != null) return
+        val iv = ImageView(context).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
         }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -68,7 +63,7 @@ class FloatingChip(
         var downX = 0f; var downY = 0f
         var startX = 0; var startY = 0
         var dragged = false
-        tv.setOnTouchListener { _, ev ->
+        iv.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = ev.rawX; downY = ev.rawY
@@ -99,51 +94,39 @@ class FloatingChip(
             }
         }
 
-        view = tv
+        view = iv
         params = lp
-        applyScale(scale)
-        runCatching { wm.addView(tv, lp) }.onFailure { view = null; params = null }
+        runCatching { wm.addView(iv, lp) }.onFailure { view = null; params = null }
     }
 
-    /** Bubble size: text + padding scale together, so the chip grows as one. */
-    private fun applyScale(scale: Float) {
-        val tv = view ?: return
-        val density = context.resources.displayMetrics.density
-        tv.textSize = 13f * scale
-        val padH = (12f * scale * density).roundToInt()
-        val padV = (6f * scale * density).roundToInt()
-        tv.setPadding(padH, padV, padH, padV)
+    fun applyScale(scale: Float) {
+        this.scale = scale
     }
 
     /**
-     * Feeds live text and the user's chosen ICON colours. The floating chip is our
-     * own surface (not an OS-tinted status-bar slot), so unlike the status-bar icon
-     * the custom background / text / outline colours actually render here in full.
+     * Shows the latest rendered chip bitmap, scaled to the bubble-size setting. The
+     * bitmap already carries the chosen style / colours / outline, so the bubble is
+     * just a scaled image of it — no separate colour plumbing needed.
      */
-    fun update(
-        text: CharSequence,
-        bgColorArgb: Int,
-        fgColorArgb: Int,
-        borderColorArgb: Int,
-        borderWidth: Int,
-        accentArgb: Int,
-    ) {
-        val tv = view ?: return
-        if (tv.text != text) tv.text = text
-        tv.setTextColor(if (Color.alpha(fgColorArgb) == 0) Color.WHITE else fgColorArgb)
+    fun update(bitmap: Bitmap) {
+        val iv = view ?: return
         val density = context.resources.displayMetrics.density
-        (tv.background as? GradientDrawable)?.apply {
-            // Default to a legible translucent dark pill when the user left the
-            // background transparent (an overlay needs SOME body to read against).
-            setColor(if (Color.alpha(bgColorArgb) == 0) 0xE6101218.toInt() else bgColorArgb)
-            val stroke = if (Color.alpha(borderColorArgb) != 0) borderColorArgb else accentArgb
-            setStroke((borderWidth.coerceIn(1, 3) * density).roundToInt(), stroke)
-        }
+        val targetH = BASE_HEIGHT_DP * scale * density
+        val s = targetH / bitmap.height.coerceAtLeast(1)
+        val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
+        val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
+        iv.setImageBitmap(scaled)
+        params?.let { lp -> runCatching { wm.updateViewLayout(iv, lp) } }
     }
 
     fun hide() {
         view?.let { v -> runCatching { wm.removeView(v) } }
         view = null
         params = null
+    }
+
+    private companion object {
+        /** Chip height in dp at 100% — the bubble-size slider (0.8–1.6) scales it. */
+        const val BASE_HEIGHT_DP = 30f
     }
 }

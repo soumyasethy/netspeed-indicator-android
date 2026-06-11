@@ -27,13 +27,41 @@ the device.**
 
 | Animated hero dashboard | Status-bar speed icon | Floating speed bubble |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/01-hero.png" width="240"/> | <img src="docs/screenshots/02-statusbar-icon.png" width="240"/><br><sub>full-height chip; glyphs punched out so it never tints to a blank box</sub> | <img src="docs/screenshots/03-floating-bubble.png" width="240"/><br><sub>draggable over any app</sub> |
+| <img src="docs/screenshots/01-hero.png" width="240"/> | <img src="docs/screenshots/02-statusbar-icon.png" width="240"/><br><sub>full-height chip; glyphs punched out so it never tints to a blank box</sub> | <img src="docs/screenshots/03-floating-bubble.png" width="240"/><br><sub>live speed floating over any app — your colours, style &amp; upload</sub> |
 
 | Notification + signal % | Icon styles & colours | Custom colour picker |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/04-notification.png" width="240"/> | <img src="docs/screenshots/05-icon-styles.png" width="240"/> | <img src="docs/screenshots/06-color-picker.png" width="240"/> |
 
+| Home-screen widget + bubble | | |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/07-home-widget.png" width="240"/><br><sub>any of 5 widget styles, one tap from the app</sub> | | |
+
 </div>
+
+---
+
+## 🎨 14 live themes × 6 colour skins
+
+Pick a **theme** for the motion and a **skin** for the palette — they compose. A skin
+repaints the *whole* app in one identity: hero, chips, toggles, the home-screen widgets,
+even the status-bar chip. Six of the combinations:
+
+<div align="center">
+
+| Aurora · Liquid | Tier · Tier flow | Carbon pulse · ECG |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/hero-aurora-liquid.png" width="240"/> | <img src="docs/screenshots/hero-tier-tierflow.png" width="240"/> | <img src="docs/screenshots/hero-carbon-ecg.png" width="240"/> |
+
+| Glasswave · Kinetic | Neo-brutal · Brutalist | Terminal · Terminal |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/hero-glass-kinetic.png" width="240"/> | <img src="docs/screenshots/hero-brutal-brutalist.png" width="240"/> | <img src="docs/screenshots/hero-terminal-terminal.png" width="240"/> |
+
+</div>
+
+> Themes: Kinetic · Tier flow · Liquid · ECG · Dial · Radar · Particles · Curtains ·
+> Material You · Sky · Bento · Terminal · Brutalist · Glass.
+> Skins: Tier · Aurora · Carbon pulse · Glasswave · Neo-brutal · Terminal.
 
 ---
 
@@ -49,13 +77,16 @@ the device.**
   back the instant data flows.
 
 ### 🫧 Floating speed bubble
-- A small **draggable chip** that floats over every app — *our* surface, so unlike the
-  OS-tinted status-bar slot it shows your chosen colours in full and stays crisply legible.
-- Fully size-configurable; tap it to open the app; remembers where you drop it.
+- A small **draggable chip** that floats over every app. Because it's *our* surface (not
+  the OS-tinted status-bar slot) it renders the **exact same icon** you configured —
+  style, unit, background, text colour, outline **and the upload value** — in full colour.
+- Independently **size-configurable**; tap it to open the app; remembers where you drop it.
 
 ### 🏠 Home-screen widgets (×5)
-- **Hero** (gradient banner), **Dial**, **Rings**, **Pill**, **Weather** — add via the
-  in-app *“Add hero banner to Home screen”* button or your launcher’s widget picker.
+- **Hero** (gradient banner), **Dial**, **Rings**, **Pill**, **Weather**.
+- An **“Add to Home screen”** row sits right under the live hero — tap any style and the
+  launcher drops that widget straight onto your home screen. Or use the launcher's own
+  widget picker.
 
 ### 🎨 Animated dashboard
 - **14 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
