@@ -336,8 +336,12 @@ class SpeedMeterService : LifecycleService() {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
         floatingChip.update(
-            "↓ ${SpeedFormatter.inline(downShown)}",
-            SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb(),
+            text = "↓ ${SpeedFormatter.inline(downShown)}",
+            bgColorArgb = settings.iconBgColor,
+            fgColorArgb = settings.iconFgColor,
+            borderColorArgb = settings.iconBorderColor,
+            borderWidth = settings.iconBorderWidth,
+            accentArgb = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb(),
         )
     }
 

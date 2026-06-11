@@ -234,8 +234,14 @@ fun SettingsScreen(
             ) {
                 Icon(Icons.Filled.Widgets, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
-                Text("Pin a home-screen widget")
+                Text("Add hero banner to Home screen")
             }
+            Text(
+                "Or long-press the home screen → Widgets → NetSpeed for all 5 widget styles.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+            )
 
             Hairline()
             ToggleRow(

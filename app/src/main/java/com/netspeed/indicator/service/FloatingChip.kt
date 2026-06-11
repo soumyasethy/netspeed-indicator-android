@@ -115,11 +115,30 @@ class FloatingChip(
         tv.setPadding(padH, padV, padH, padV)
     }
 
-    fun update(text: CharSequence, accentArgb: Int) {
+    /**
+     * Feeds live text and the user's chosen ICON colours. The floating chip is our
+     * own surface (not an OS-tinted status-bar slot), so unlike the status-bar icon
+     * the custom background / text / outline colours actually render here in full.
+     */
+    fun update(
+        text: CharSequence,
+        bgColorArgb: Int,
+        fgColorArgb: Int,
+        borderColorArgb: Int,
+        borderWidth: Int,
+        accentArgb: Int,
+    ) {
         val tv = view ?: return
         if (tv.text != text) tv.text = text
-        (tv.background as? GradientDrawable)
-            ?.setStroke((1.5f * context.resources.displayMetrics.density).roundToInt(), accentArgb)
+        tv.setTextColor(if (Color.alpha(fgColorArgb) == 0) Color.WHITE else fgColorArgb)
+        val density = context.resources.displayMetrics.density
+        (tv.background as? GradientDrawable)?.apply {
+            // Default to a legible translucent dark pill when the user left the
+            // background transparent (an overlay needs SOME body to read against).
+            setColor(if (Color.alpha(bgColorArgb) == 0) 0xE6101218.toInt() else bgColorArgb)
+            val stroke = if (Color.alpha(borderColorArgb) != 0) borderColorArgb else accentArgb
+            setStroke((borderWidth.coerceIn(1, 3) * density).roundToInt(), stroke)
+        }
     }
 
     fun hide() {
