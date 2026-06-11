@@ -1,33 +1,120 @@
-# netspeed-indicator-android
+<div align="center">
 
-Real-time internet speed meter for Android. Shows live download/upload speed as a
-status-bar icon, home-screen widgets, an animated in-app dashboard and an optional
-floating bubble — refreshed every second from kernel `TrafficStats` counters.
+# 📶 NetSpeed Indicator
 
-## Highlights
-- **Status-bar speed icon** — 5 styles (Arrows ↕/↔, Stacked, Compact, Auto), unit
-  display options, custom colours, outline chip, size slider. Rendered as a
-  per-second notification small-icon bitmap (the only sanctioned status-bar surface).
-- **Floating speed bubble** — draggable overlay chip over any app, fully size-configurable.
-- **5 home-screen widgets** (hero/dial/rings/pill/weather) sharing one Canvas paint
-  pipeline with the in-app previews.
-- **Animated hero** — 14 live themes × 6 colour skins, gemini-style flowing gradients
-  (constant-velocity seamless loop), reduced-motion aware.
-- **Design system** — Material 3 tokens (primary/secondary/tertiary + on-colours)
-  derived from the active skin.
-- **Usage tracking** — today / 30-day history / lifetime, daily quota ring.
-- **Smoothed display** (~2.5 s EMA), auto-hide when idle, signal strength % in the
-  notification panel.
-- **Privacy: zero `INTERNET` permission** — verifiable guarantee the app cannot
-  phone home. APK ≈ 1.2 MB, no third-party dependencies.
+### Real-time internet speed, right in your status bar.
 
-## Tech
-Kotlin · Jetpack Compose + Material 3 · DataStore · Foreground service (specialUse)
-· min SDK 26, target/compile 35 · Gradle Kotlin DSL + version catalog.
+A fast, private, beautifully animated network-speed meter for Android — live
+download/upload speed as a status-bar icon, a floating bubble, home-screen widgets,
+and an animated in-app dashboard. **No `INTERNET` permission. Your data never leaves
+the device.**
 
-## Build
+<br>
+
+[![Download APK](https://img.shields.io/badge/⬇%20Download-APK%20(latest%20release)-2563EB?style=for-the-badge)](../../releases/latest)
+&nbsp;
+![Platform](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Size](https://img.shields.io/badge/APK-~1.3%20MB-7C3AED?style=for-the-badge)
+![No Internet](https://img.shields.io/badge/Privacy-zero%20INTERNET%20perm-EC4899?style=for-the-badge)
+
+</div>
+
+---
+
+## 📸 Screenshots
+
+<div align="center">
+
+| Animated hero dashboard | Status-bar speed icon | Floating speed bubble |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/01-hero.png" width="240"/> | <img src="docs/screenshots/02-statusbar-icon.png" width="240"/><br><sub>full-height chip; glyphs punched out so it never tints to a blank box</sub> | <img src="docs/screenshots/03-floating-bubble.png" width="240"/><br><sub>draggable over any app</sub> |
+
+| Notification + signal % | Icon styles & colours | Custom colour picker |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/04-notification.png" width="240"/> | <img src="docs/screenshots/05-icon-styles.png" width="240"/> | <img src="docs/screenshots/06-color-picker.png" width="240"/> |
+
+</div>
+
+---
+
+## ✨ Features
+
+### Status-bar speed icon
+- **5 styles** — Arrows ↕, Arrows ↔ (side-by-side), Stacked, Compact, and **Auto ⇅**
+  (shows whichever direction is busier, one at a time).
+- **Unit display** your way — `84k` (short), `84 KB/s` (full), or number-over-unit.
+- **Custom colours** — background, text, and an **outline** chip (colour + 1–3 px width).
+- **Size slider** + respects your system font scale.
+- **Auto-hide when idle** — the icon disappears after 30 s of no traffic and snaps
+  back the instant data flows.
+
+### 🫧 Floating speed bubble
+- A small **draggable chip** that floats over every app — *our* surface, so unlike the
+  OS-tinted status-bar slot it shows your chosen colours in full and stays crisply legible.
+- Fully size-configurable; tap it to open the app; remembers where you drop it.
+
+### 🏠 Home-screen widgets (×5)
+- **Hero** (gradient banner), **Dial**, **Rings**, **Pill**, **Weather** — add via the
+  in-app *“Add hero banner to Home screen”* button or your launcher’s widget picker.
+
+### 🎨 Animated dashboard
+- **14 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
+  Material You, Sky, Bento, Terminal, Brutalist, Glass) × **6 colour skins**
+  (Tier, Aurora, Carbon, Glasswave, Neo-brutal, Terminal).
+- Smooth, gemini-style **flowing gradients** (constant-velocity, reduced-motion aware).
+- A Material 3 **design system** whose primary/secondary/tertiary colours all derive
+  from the active skin.
+
+### 📊 Insight
+- **Smoothed** readout (no jittery numbers), **Wi-Fi / mobile signal %** in the panel,
+  **today / 30-day history / lifetime** usage, and a daily-quota ring.
+
+### 🔒 Privacy
+- Ships with **no `android.permission.INTERNET`** — a verifiable guarantee the app
+  *cannot* phone home. Speed is read from kernel `TrafficStats` counters. No ads,
+  no trackers, no third-party SDKs.
+
+---
+
+## ⬇️ Install (from GitHub)
+
+1. Open the **[latest release](../../releases/latest)** and download the `.apk`.
+2. On your phone, tap the file → allow **“Install unknown apps”** for your browser /
+   Files app if prompted.
+3. Open **NetSpeed Indicator**, flip **“Show speed in status bar”** on, and grant the
+   notification permission. Done.
+
+> First-launch tip: if your phone (Samsung One UI / MIUI) collapses status-bar
+> notification icons into a single dot, the app’s **“Icon not showing? (status-bar dot)”**
+> card walks you through the one system toggle to fix it.
+
+---
+
+## 🛠️ Build from source
+
+Requires **JDK 17** (newer JDKs crash the Kotlin compiler used here).
+
 ```bash
-# Needs JDK 17
-./gradlew assembleDebug
-./gradlew testDebugUnitTest assembleRelease
+export JAVA_HOME=/path/to/jdk-17
+git clone git@github.com:soumyasethy/netspeed-indicator-android.git
+cd netspeed-indicator-android
+./gradlew assembleDebug            # debug APK (installable, debuggable)
+./gradlew testDebugUnitTest        # unit tests
+./gradlew assembleRelease          # release APK (signed if keystore.properties present)
 ```
+
+Release signing is read from a gitignored `keystore.properties` at the repo root:
+```properties
+storeFile=keystore/release.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+## 🧱 Tech
+
+Kotlin · Jetpack Compose + Material 3 · DataStore · foreground service (`specialUse`) ·
+Android Canvas · `min SDK 26 / target 35` · Gradle Kotlin DSL + version catalog · no
+third-party runtime dependencies.
+
+Architecture and design notes live in [`docs/context/`](docs/context/CONTEXT.md).
