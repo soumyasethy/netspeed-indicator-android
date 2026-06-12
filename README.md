@@ -14,7 +14,7 @@ the device.**
 [![Download APK](https://img.shields.io/badge/⬇%20Download-APK%20(latest%20release)-2563EB?style=for-the-badge)](../../releases/latest)
 &nbsp;
 ![Platform](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![Size](https://img.shields.io/badge/APK-~1.3%20MB-7C3AED?style=for-the-badge)
+![Size](https://img.shields.io/badge/APK-~2.2%20MB-7C3AED?style=for-the-badge)
 ![No Internet](https://img.shields.io/badge/Privacy-zero%20INTERNET%20perm-EC4899?style=for-the-badge)
 
 </div>
