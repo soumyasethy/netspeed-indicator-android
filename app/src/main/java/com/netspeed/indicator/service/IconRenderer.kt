@@ -71,6 +71,11 @@ class IconRenderer(private val sizePx: Int = 96) {
      *  chosen unit style renders exactly as picked. */
     private var chipAdapt: Boolean = false
 
+    /** Bubble width boost: multiplies [renderChip]'s horizontal padding so users
+     *  can widen the floating chip for an easier touch target (1.0–2.5). */
+    var chipPadScale: Float = 1f
+        set(value) { field = value.coerceIn(1f, 2.5f) }
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
@@ -264,7 +269,7 @@ class IconRenderer(private val sizePx: Int = 96) {
         applyColors()
         chipAdapt = false           // bubble is content-sized: unit renders as picked
         val content = contentFor(style, downBps, upBps, showCombined)
-        val padX = sizePx * 0.18f
+        val padX = sizePx * 0.18f * chipPadScale
         val padY = sizePx * 0.16f
         val w = (content.width + padX * 2f).toInt().coerceAtLeast(1)
         val h = (content.height + padY * 2f).toInt().coerceAtLeast(1)

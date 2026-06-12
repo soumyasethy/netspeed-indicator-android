@@ -106,6 +106,9 @@ fun SettingsScreen(
     onHideIconWhenBubble: (Boolean) -> Unit,
     onBubbleFreePlacement: (Boolean) -> Unit,
     onResetBubblePos: () -> Unit,
+    onBubbleNudge: (dxPx: Int, dyPx: Int) -> Unit,
+    onBubblePreset: (corner: BubbleCorner) -> Unit,
+    onFloatingChipPadScale: (Float) -> Unit,
     dailyHistory: List<com.netspeed.indicator.data.DayUsage>,
     onStyleSelect: (IconStyle) -> Unit,
     onPanelToggle: (Boolean) -> Unit,
@@ -299,6 +302,10 @@ fun SettingsScreen(
                     onCheckedChange = { tap(); onBubbleFreePlacement(it) },
                     tierColor = tierColor,
                 )
+                BubblePositionPad(
+                    onNudge = { dx, dy -> tap(); onBubbleNudge(dx, dy) },
+                    onPreset = { tap(); onBubblePreset(it) },
+                )
                 OutlinedButton(
                     onClick = { tap(); onResetBubblePos() },
                     modifier = Modifier.fillMaxWidth(),
@@ -325,6 +332,26 @@ fun SettingsScreen(
                         onValueChange = { onFloatingChipScale(((it * 20f).toInt() / 20f)) },
                         valueRange = 0.8f..1.6f,
                         steps = 15,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Bubble width",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "${(settings.floatingChipPadScale * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        )
+                    }
+                    Slider(
+                        value = settings.floatingChipPadScale,
+                        onValueChange = { onFloatingChipPadScale(((it * 20f).toInt() / 20f)) },
+                        valueRange = 1f..2.5f,
+                        steps = 29,
                     )
                 }
             }
@@ -1266,6 +1293,76 @@ private fun SkinRow(
                         color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     )
                 }
+            }
+        }
+    }
+}
+
+/** Quick-dock targets for the floating bubble. */
+enum class BubbleCorner { TOP_LEFT, TOP_RIGHT, CENTRE, BOTTOM_LEFT, BOTTOM_RIGHT }
+
+/**
+ * Precise bubble placement without fighting a fingertip-sized drag target:
+ * one-tap corner/centre presets (deep-docks land exactly, no drag needed) plus
+ * a nudge pad that moves the live chip in small steps. Both write the stored
+ * position; the service applies it instantly.
+ */
+@Composable
+private fun BubblePositionPad(
+    onNudge: (dxPx: Int, dyPx: Int) -> Unit,
+    onPreset: (BubbleCorner) -> Unit,
+) {
+    val step = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.roundToPx() }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Bubble position",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                BubbleCorner.TOP_LEFT to "◴ Top-L",
+                BubbleCorner.TOP_RIGHT to "◷ Top-R",
+                BubbleCorner.CENTRE to "◉ Centre",
+                BubbleCorner.BOTTOM_LEFT to "◵ Bot-L",
+                BubbleCorner.BOTTOM_RIGHT to "◶ Bot-R",
+            ).forEach { (corner, label) ->
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        .selectable(selected = false, onClick = { onPreset(corner) })
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+            }
+        }
+        // Nudge pad: ◀ ▲ ▼ ▶ in one row — small, repeatable steps.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Fine-tune:",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            listOf(
+                "◀" to (-step to 0), "▶" to (step to 0),
+                "▲" to (0 to -step), "▼" to (0 to step),
+            ).forEach { (glyph, d) ->
+                Text(
+                    glyph,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        .selectable(selected = false, onClick = { onNudge(d.first, d.second) })
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                )
             }
         }
     }

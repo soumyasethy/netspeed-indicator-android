@@ -108,6 +108,14 @@ class MainActivity : ComponentActivity() {
                     onHideIconWhenBubble = { v -> persist { repo.setHideIconWhenBubble(v) } },
                     onBubbleFreePlacement = { v -> persist { repo.setBubbleFreePlacement(v) } },
                     onResetBubblePos = { persist { repo.resetFloatingChipPos() } },
+                    onBubbleNudge = { dx, dy ->
+                        persist {
+                            val s = repo.settings.first()
+                            repo.setFloatingChipPos(s.floatingChipX + dx, s.floatingChipY + dy)
+                        }
+                    },
+                    onBubblePreset = { corner -> persist { applyBubblePreset(corner) } },
+                    onFloatingChipPadScale = { v -> persist { repo.setFloatingChipPadScale(v) } },
                     onStyleSelect = { style -> persist { repo.setIconStyle(style) } },
                     onPanelToggle = { value -> persist { repo.setShowInPanel(value) } },
                     onThemeSelect = { theme -> persist { repo.setHeroTheme(theme) } },
@@ -253,6 +261,23 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Quick-dock the bubble: corner presets target the screen extremes (the
+     * service-side clamp pulls them to the legal edge for the current placement
+     * mode), centre is computed from the display size.
+     */
+    private suspend fun applyBubblePreset(corner: BubbleCorner) {
+        val dm = resources.displayMetrics
+        val (x, y) = when (corner) {
+            BubbleCorner.TOP_LEFT -> 0 to 0
+            BubbleCorner.TOP_RIGHT -> dm.widthPixels to 0
+            BubbleCorner.CENTRE -> dm.widthPixels / 2 - dm.widthPixels / 14 to dm.heightPixels / 2
+            BubbleCorner.BOTTOM_LEFT -> 0 to dm.heightPixels
+            BubbleCorner.BOTTOM_RIGHT -> dm.widthPixels to dm.heightPixels
+        }
+        repo.setFloatingChipPos(x, y)
     }
 
     /** Asks the launcher to pin the chosen widget style to the home screen (API 26+). */

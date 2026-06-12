@@ -62,6 +62,8 @@ data class Settings(
     val hideIconWhenBubble: Boolean = false,
     /** Bubble size multiplier (0.8–1.6). */
     val floatingChipScale: Float = 1f,
+    /** Bubble width boost — multiplies the chip's horizontal padding (1.0–2.5). */
+    val floatingChipPadScale: Float = 1f,
     /** Persisted bubble position (window coordinates). */
     val floatingChipX: Int = DEFAULT_CHIP_X,
     val floatingChipY: Int = DEFAULT_CHIP_Y,
@@ -118,6 +120,7 @@ class SettingsRepository(private val context: Context) {
             floatingChip = p[KEY_FLOAT_CHIP] ?: true,
             hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: false,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
+            floatingChipPadScale = (p[KEY_FLOAT_PAD] ?: 1f).coerceIn(1f, 2.5f),
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
@@ -165,6 +168,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setFloatingChip(value: Boolean) = edit { it[KEY_FLOAT_CHIP] = value }
     suspend fun setHideIconWhenBubble(value: Boolean) = edit { it[KEY_HIDE_ICON_BUBBLE] = value }
     suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.8f, 1.6f) }
+    suspend fun setFloatingChipPadScale(v: Float) = edit { it[KEY_FLOAT_PAD] = v.coerceIn(1f, 2.5f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
     suspend fun setBubbleFreePlacement(value: Boolean) = edit { it[KEY_FLOAT_FREE] = value }
     /** "Reset bubble position": back to the default spot (never-a-blocker net). */
@@ -224,6 +228,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_FLOAT_CHIP = booleanPreferencesKey("floating_chip")
         val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
         val KEY_FLOAT_FREE = booleanPreferencesKey("bubble_free_placement")
+        val KEY_FLOAT_PAD = floatPreferencesKey("floating_chip_pad_scale")
         val KEY_FLOAT_SCALE = floatPreferencesKey("floating_chip_scale")
         val KEY_FLOAT_X = intPreferencesKey("floating_chip_x")
         val KEY_FLOAT_Y = intPreferencesKey("floating_chip_y")

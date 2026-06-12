@@ -183,6 +183,19 @@ class SpeedMeterService : LifecycleService() {
                 // Bubble toggled off → remove the overlay NOW, not on the next tick
                 // (with the screen off / service paused the chip would linger).
                 if (!s.floatingChip && floatingChip.isShown) runCatching { floatingChip.hide() }
+                // Stored-position reconcile lives HERE (not the 1 Hz tick) so the
+                // in-app nudge pad / presets / Reset move the chip the instant the
+                // write lands. Fires only when the STORED value changes — comparing
+                // stored vs live every emission would race a drag's async persist.
+                val want = s.floatingChipX to s.floatingChipY
+                if (want != lastStoredChipPos) {
+                    lastStoredChipPos = want
+                    if (floatingChip.isShown &&
+                        (floatingChip.posX != want.first || floatingChip.posY != want.second)
+                    ) {
+                        floatingChip.moveTo(want.first, want.second)
+                    }
+                }
                 // No surface left (bar icon off AND no drawable bubble) → shut down.
                 val bubbleLive = s.floatingChip &&
                     android.provider.Settings.canDrawOverlays(this@SpeedMeterService)
@@ -389,16 +402,6 @@ class SpeedMeterService : LifecycleService() {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
         floatingChip.applyScale(settings.floatingChipScale)   // bubble-size slider, live
-        // Position reconcile — applied only when the STORED position changes
-        // (i.e. "Reset bubble position"). Comparing stored vs live every tick
-        // would race the async persist of a drag and snap the chip back.
-        val want = settings.floatingChipX to settings.floatingChipY
-        if (want != lastStoredChipPos) {
-            lastStoredChipPos = want
-            if (floatingChip.isShown && (floatingChip.posX != want.first || floatingChip.posY != want.second)) {
-                floatingChip.moveTo(want.first, want.second)
-            }
-        }
 
         val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
         bubbleRenderer.fontScale = resources.configuration.fontScale
@@ -408,6 +411,7 @@ class SpeedMeterService : LifecycleService() {
         bubbleRenderer.fgColorArgb =
             if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         bubbleRenderer.unitStyle = settings.iconUnitStyle
+        bubbleRenderer.chipPadScale = settings.floatingChipPadScale
         bubbleRenderer.borderColorArgb = settings.iconBorderColor
         bubbleRenderer.borderWidth = settings.iconBorderWidth
         floatingChip.update(
