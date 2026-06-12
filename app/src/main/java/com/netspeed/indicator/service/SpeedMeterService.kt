@@ -428,7 +428,10 @@ class SpeedMeterService : LifecycleService() {
 
     /** Assembles the current [NotificationFactory.Content] frame. */
     private fun currentContent(iconBitmap: Bitmap?, downBps: Long, upBps: Long): NotificationFactory.Content {
-        val tierColor = SpeedTiers.tierOf(downBps / 1_048_576f).c2.toArgb()
+        // Shade accent follows the user's chosen chip colour when set (the bar
+        // icon itself is OS-tinted, but the shade tints OUR way) — else live tier.
+        val tierColor = if (Color.alpha(settings.iconBgColor) != 0) settings.iconBgColor
+        else SpeedTiers.tierOf(downBps / 1_048_576f).c2.toArgb()
         return NotificationFactory.Content(
             iconBitmap = iconBitmap,
             downBps = downBps,

@@ -718,6 +718,10 @@ private fun IconStyleCard(
         renderer.unitStyle = unitStyle
         renderer.borderColorArgb = borderColor
         renderer.borderWidth = borderWidth
+        // Colour-true previews: glyphs painted in the chosen colour on top (like
+        // the bubble), so every colour pick is visible here. The REAL status-bar
+        // bitmap stays punch-out — the OS tints it monochrome regardless.
+        renderer.colorTrue = true
         IconStyle.entries.associateWith { style ->
             if (style == IconStyle.ARROWS_H && showCombined && dualOk) {
                 listOf(
@@ -737,7 +741,9 @@ private fun IconStyleCard(
         run {
             Text(text = "Icon style", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Pick how the speed looks in the status bar.",
+                text = "Pick how the speed looks in the status bar. Colours show in full on the " +
+                    "floating bubble and here; Android repaints the tiny status-bar icon itself " +
+                    "in one colour, so there the chip shows as its shape with cut-out digits.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )

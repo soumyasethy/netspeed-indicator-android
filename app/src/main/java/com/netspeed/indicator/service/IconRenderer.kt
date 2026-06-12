@@ -56,6 +56,15 @@ class IconRenderer(private val sizePx: Int = 96) {
     /** Unit treatment for the single-direction styles (Auto/side-by-side/Compact). */
     var unitStyle: UnitStyle = UnitStyle.DEFAULT
 
+    /**
+     * Colour-true mode (in-app previews): glyphs are painted in [fgColorArgb] ON
+     * TOP of the chip, exactly like the floating bubble, so every colour choice is
+     * visible. The real status-bar bitmap keeps punch-out (false): the OS tints
+     * small icons monochrome-by-alpha, so painted colours would tint into a solid
+     * box there — holes survive the tint.
+     */
+    var colorTrue: Boolean = false
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
@@ -110,11 +119,23 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun render(style: IconStyle, downBps: Long, upBps: Long, showCombined: Boolean): Bitmap {
         applyColors()
+        val s = if (isDecorated) chipStyle(style) else style
         return frame(
-            content = contentFor(style, downBps, upBps, showCombined),
-            refContent = { contentFor(style, REF_BPS, REF_BPS, showCombined) },
+            content = contentFor(s, downBps, upBps, showCombined),
+            refContent = { contentFor(s, REF_BPS, REF_BPS, showCombined) },
         )
     }
+
+    /**
+     * Chip-friendly adaptation: the decorated chip is a SQUARE, so wide one-row
+     * content would be fit-by-width into tiny digits (or trip the legibility
+     * fallback and silently drop the user's colours — the "my colour does
+     * nothing" bug). Inside a chip, the wide combined row becomes the stacked
+     * two-row style; everything else already fits the square. [singleContent]
+     * separately falls back FULL→SHORT inside chips for the same reason.
+     */
+    private fun chipStyle(style: IconStyle): IconStyle =
+        if (style == IconStyle.ARROWS_H) IconStyle.ARROWS else style
 
     private fun applyColors() {
         valuePaint.color = fgColorArgb
@@ -209,7 +230,7 @@ class IconRenderer(private val sizePx: Int = 96) {
         canvas.drawBitmap(
             content, null,
             android.graphics.RectF(left, top, left + dw, top + dh),
-            if (Color.alpha(bgColorArgb) != 0) punchPaint else chipContentPaint,
+            if (!colorTrue && Color.alpha(bgColorArgb) != 0) punchPaint else chipContentPaint,
         )
         return out
     }
@@ -352,7 +373,9 @@ class IconRenderer(private val sizePx: Int = 96) {
             val p = SpeedFormatter.parts(bps)
             return stackedBitmap(p.value, p.unit, unitArrowDown = null)
         }
-        val (digits, suffix) = when (unitStyle) {
+        // Same chip adaptation as singleContent: FULL is too wide for the square.
+        val effectiveUnit = if (isDecorated && unitStyle == UnitStyle.FULL) UnitStyle.SHORT else unitStyle
+        val (digits, suffix) = when (effectiveUnit) {
             UnitStyle.FULL -> {
                 val p = SpeedFormatter.parts(bps)
                 p.value to p.unit
@@ -498,8 +521,12 @@ class IconRenderer(private val sizePx: Int = 96) {
             val p = SpeedFormatter.parts(bps)
             return stackedBitmap(p.value, p.unit, unitArrowDown = down)
         }
+        // Inside a decorated chip the FULL row ("84 KB/s") is too wide for the
+        // square — digits would shrink past legibility and the chip (the user's
+        // colours) would silently drop. Use the short token there instead.
+        val effectiveUnit = if (isDecorated && unitStyle == UnitStyle.FULL) UnitStyle.SHORT else unitStyle
         // SHORT: "84k" (suffix from the compact token); FULL: "84 KB/s".
-        val (digits, suffix) = when (unitStyle) {
+        val (digits, suffix) = when (effectiveUnit) {
             UnitStyle.FULL -> {
                 val p = SpeedFormatter.parts(bps)
                 p.value to p.unit
