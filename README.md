@@ -21,56 +21,92 @@ the device.**
 
 ---
 
-## 🎬 See it move
+## 🎬 One speed, every surface
 
-Every animation below is **driven by your real network speed** — these are unedited
-screen recordings from a Galaxy S25 Ultra.
+You set a speed scene once — and it follows you through the whole phone.
+A crawling connection is a **snail**; as your download climbs the same world hands
+over to a **bicycle, a car, a plane and finally a rocket in space**. Every frame
+below is an unedited recording from a Galaxy S25 Ultra, driven by a real download.
+
+<div align="center">
+<img src="docs/media/still-home.png" width="420"/><br>
+<sub>One real 14 MB/s download, one red-car era — the transparent bubble and the
+home-screen widget agree, to the tier.</sub>
+</div>
+
+<br>
+
+### 1 · The status bar — where it starts
 
 <div align="center">
 
-**The Journey scene: snail → bicycle → car → plane → rocket, as your speed climbs.**<br>
-<sub>Transparent floating bubble + home-screen widget reading 14 MB/s — the red car era.</sub>
-
-<img src="docs/media/still-home.png" width="340"/>
-
-<br><br>
-
-**Pick a scene by eye — live animated previews sweep through every speed tier.**
-
-<img src="docs/media/showreel.gif" width="640"/>
-
-<br><br>
-
-| The bubble IS the animation | Widgets animate at 24 fps |
+| Your colours on One UI | Styles, units, outline |
 |:---:|:---:|
-| <img src="docs/media/bubble-live.gif" width="380"/><br><sub>icon background "None" → only the scene floats on your wallpaper</sub> | <img src="docs/media/widget-live.gif" width="380"/><br><sub>launcher-side flip-book — smooth motion, zero extra battery</sub> |
-
-| Hero banner, mid-download | Status bar, true colours |
-|:---:|:---:|
-| <img src="docs/media/hero-live.gif" width="380"/><br><sub>bicycle through the field at 2 MB/s — environments blend, never snap</sub> | <img src="docs/media/still-bar.png" width="380"/><br><sub>your colours in the bar on One UI; max-contrast glyphs elsewhere</sub> |
-
-<sub>📹 Full clips: <a href="docs/media/showreel.mp4">scene showreel</a> · <a href="docs/media/live-demo.mp4">live download demo</a></sub>
+| <img src="docs/media/still-bar.png" width="380"/> | <img src="docs/screenshots/05-icon-styles.png" width="240"/> |
+| <sub>Samsung bars render the chip colour-true; tinted bars (Pixel) get bare max-contrast glyphs — always crisp, never a blank box</sub> | <sub>5 icon styles × 3 unit formats × background/text/outline colours × size slider</sub> |
 
 </div>
 
----
-
-## 📸 Screenshots
+### 2 · Pull down — the scene lives in the notification too
 
 <div align="center">
 
-| Animated hero dashboard | Status-bar speed icon | Floating speed bubble |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/01-hero.png" width="240"/> | <img src="docs/screenshots/02-statusbar-icon.png" width="240"/><br><sub>full-height chip; glyphs punched out so it never tints to a blank box</sub> | <img src="docs/screenshots/03-floating-bubble.png" width="240"/><br><sub>live speed floating over any app — your colours, style &amp; upload</sub> |
+| Scene card, expanded panel | Details + signal % |
+|:---:|:---:|
+| <img src="docs/media/still-notification.png" width="380"/> | <img src="docs/screenshots/04-notification.png" width="240"/> |
+| <sub>the snail waits on its road right inside the panel; Pause / Style / Hide actions below</sub> | <sub>download, upload, today's total and Wi-Fi signal — refreshed every second</sub> |
 
-| Notification + signal % | Icon styles & colours | Custom colour picker |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/04-notification.png" width="240"/> | <img src="docs/screenshots/05-icon-styles.png" width="240"/> | <img src="docs/screenshots/06-color-picker.png" width="240"/> |
+</div>
 
-| Home-screen widget + bubble | | |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/07-home-widget.png" width="240"/><br><sub>any of 5 widget styles, one tap from the app</sub> | | |
+### 3 · Open the app — the hero banner is the dashboard
 
+<div align="center">
+
+| Mid-download: bicycle era | Idle: the snail rests |
+|:---:|:---:|
+| <img src="docs/media/hero-live.gif" width="320"/> | <img src="docs/media/still-hero.png" width="320"/> |
+| <sub>environments BLEND as speed changes — dawn, field, road, sky, space; they never snap</sub> | <sub>text docks beside the scene's focal point (auto per scene, or pick a side)</sub> |
+
+</div>
+
+### 4 · Pin it — widgets animate at 24 fps on your launcher
+
+<div align="center">
+
+<img src="docs/media/widget-live.gif" width="420"/><br>
+<sub>a real downshift: 14 MB/s car era cooling to the bicycle — launcher-side flip-book,
+zero extra battery, razor-sharp digits over the soft scene</sub>
+
+</div>
+
+### 5 · Float it — the bubble is the animation
+
+<div align="center">
+
+<img src="docs/media/bubble-live.gif" width="420"/><br>
+<sub>icon background "None" → only the digits and the scene float on your wallpaper;
+drag it anywhere, over any app — even into the status bar</sub>
+
+</div>
+
+### 6 · Choose everything by eye — live previews, no guessing
+
+<div align="center">
+
+<img src="docs/media/showreel.gif" width="640"/><br>
+<sub>the scene picker sweeps every speed tier so each card shows its full range</sub>
+
+<br><br>
+
+<img src="docs/media/still-pickers.png" width="420"/><br>
+<sub>theme cards play their real animation; skin cards show the actual palette,
+typeface and accent</sub>
+
+</div>
+
+<div align="center">
+<sub>📹 Full clips: <a href="docs/media/showreel.mp4">scene showreel</a> ·
+<a href="docs/media/live-demo.mp4">live download demo</a></sub>
 </div>
 
 ---
