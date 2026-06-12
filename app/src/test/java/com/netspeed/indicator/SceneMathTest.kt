@@ -13,11 +13,24 @@ import org.junit.Test
 class SceneMathTest {
 
     @Test
-    fun norm_clampsToCeiling() {
+    fun norm_perceptualCurve() {
         assertEquals(0f, SpeedTiers.norm(0f), 1e-6f)
-        assertEquals(0.5f, SpeedTiers.norm(24f), 1e-6f)
         assertEquals(1f, SpeedTiers.norm(48f), 1e-6f)
         assertEquals(1f, SpeedTiers.norm(500f), 1e-6f)
+        // Real-world KB/s traffic must visibly animate: 59 KB/s clears the
+        // runner's 0.06 wake-up threshold with margin.
+        assertTrue(SpeedTiers.norm(0.0576f) > 0.06f)
+        // ~10 KB/s is the idle boundary.
+        assertEquals(0.06f, SpeedTiers.norm(0.0104f), 0.005f)
+        // Monotonic across the range.
+        var prev = -1f
+        var v = 0f
+        while (v <= 50f) {
+            val n = SpeedTiers.norm(v)
+            assertTrue(n >= prev)
+            prev = n
+            v += 0.1f
+        }
     }
 
     @Test

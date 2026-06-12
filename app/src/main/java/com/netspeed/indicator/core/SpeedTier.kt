@@ -82,8 +82,15 @@ object SpeedTiers {
     /** Shared speed ceiling (MB/s) used by hero fill, widgets and scenes. */
     const val CEILING_MBPS = 48f
 
-    /** 0..1 normalized speed against the shared 48 MB/s ceiling. */
-    fun norm(speedMBps: Float): Float = (speedMBps / CEILING_MBPS).coerceIn(0f, 1f)
+    /**
+     * 0..1 PERCEPTUAL speed for the scenes, against the shared 48 MB/s ceiling.
+     * Cube-root, not linear: real-world traffic lives in 0.05–5 MB/s, where a
+     * linear /48 mapping pins every scene at its idle state (a 59 KB/s download
+     * was sc 0.001 — the runner slept through it). Anchors: 10 KB/s ≈ 0.06
+     * (wake-up), 1 MB/s ≈ 0.28, 10 MB/s ≈ 0.6, 48 MB/s = 1.
+     */
+    fun norm(speedMBps: Float): Float =
+        Math.cbrt(((speedMBps / CEILING_MBPS).coerceIn(0f, 1f)).toDouble()).toFloat()
 
     /**
      * Within-tier progress 0..1: how far the speed sits between its tier's lower
