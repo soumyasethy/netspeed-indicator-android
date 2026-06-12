@@ -19,6 +19,14 @@ the device.**
 
 </div>
 
+<div align="center">
+
+<img src="docs/media/hero-intro.gif" width="460"/><br>
+<sub>🐌 → 🚲 → ✈️ → 🚀 — the hero banner riding a REAL download from idle to 14 MB/s
+and back. Unedited screen recording · <a href="docs/media/hero-intro.mp4">HD clip</a></sub>
+
+</div>
+
 ---
 
 ## 🎬 One speed, every surface
@@ -98,9 +106,9 @@ drag it anywhere, over any app — even into the status bar</sub>
 
 <br><br>
 
-<img src="docs/media/still-pickers.png" width="420"/><br>
-<sub>theme cards play their real animation; skin cards show the actual palette,
-typeface and accent</sub>
+<img src="docs/media/still-pickers.png" width="560"/><br>
+<sub>theme cards play their real animation; skin cards are your hero banner in
+that palette — pick everything by eye</sub>
 
 </div>
 
