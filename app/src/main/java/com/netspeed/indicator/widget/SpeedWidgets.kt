@@ -39,21 +39,38 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
     }
 
     private fun push(context: Context, manager: AppWidgetManager, id: Int, data: WidgetData) {
-        val bitmap = WidgetPainters.render(kind, widthPx, heightPx, data)
-        val views = RemoteViews(context.packageName, R.layout.widget_image)
-        views.setImageViewBitmap(R.id.widget_image, bitmap)
-        views.setOnClickPendingIntent(
-            R.id.widget_image,
-            PendingIntent.getActivity(
-                context, kind.ordinal,
-                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
+        val click = PendingIntent.getActivity(
+            context, kind.ordinal,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE,
         )
+        // Scene-theme hero widgets animate via a launcher-side flip-book:
+        // eight frames 125 ms apart, cycled locally by the ViewFlipper —
+        // smooth 8 fps motion from the same 1 Hz push.
+        val frames = if (kind == WidgetKind.HERO) {
+            WidgetPainters.renderHeroSceneFrames(widthPx, heightPx, data, FRAME_IDS.size, 0.125f)
+        } else null
+        val views = if (frames != null) {
+            RemoteViews(context.packageName, R.layout.widget_flipbook).apply {
+                FRAME_IDS.forEachIndexed { i, viewId -> setImageViewBitmap(viewId, frames[i]) }
+                setOnClickPendingIntent(R.id.widget_flipbook_root, click)
+            }
+        } else {
+            RemoteViews(context.packageName, R.layout.widget_image).apply {
+                setImageViewBitmap(R.id.widget_image, WidgetPainters.render(kind, widthPx, heightPx, data))
+                setOnClickPendingIntent(R.id.widget_image, click)
+            }
+        }
         manager.updateAppWidget(id, views)
     }
 
     companion object {
+        /** Flip-book frame slots in widget_flipbook.xml, in play order. */
+        private val FRAME_IDS = intArrayOf(
+            R.id.frame_0, R.id.frame_1, R.id.frame_2, R.id.frame_3,
+            R.id.frame_4, R.id.frame_5, R.id.frame_6, R.id.frame_7,
+        ).toList()
+
         /** Last frame pushed by the service — used so a freshly pinned widget
          *  renders with the right skin/theme instantly instead of default blue. */
         @Volatile private var lastData: WidgetData? = null

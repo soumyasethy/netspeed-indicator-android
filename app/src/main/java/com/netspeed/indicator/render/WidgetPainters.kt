@@ -77,7 +77,19 @@ object WidgetPainters {
      * 60 fps theme animation can't run in RemoteViews — the service refreshes a
      * still frame once per second instead.) Default/unknown key = Tier-flow look.
      */
-    fun hero(w: Int, h: Int, d: WidgetData): Bitmap {
+    /**
+     * Flip-book frames for a scene-theme hero widget: [frames] full hero frames
+     * stepped [dtS] apart from "now", cycled launcher-side by a ViewFlipper —
+     * smooth motion without raising the 1 Hz push rate. Null for non-scene
+     * themes (single-frame path applies).
+     */
+    fun renderHeroSceneFrames(w: Int, h: Int, d: WidgetData, frames: Int, dtS: Float): List<Bitmap>? {
+        SceneRegistry.fromThemeKey(d.themeKey) ?: return null
+        val base = (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
+        return List(frames) { i -> hero(w, h, d, sceneTimeS = base + i * dtS) }
+    }
+
+    fun hero(w: Int, h: Int, d: WidgetData, sceneTimeS: Float = -1f): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val wf = w.toFloat(); val hf = h.toFloat()
@@ -95,9 +107,9 @@ object WidgetPainters {
         val sceneEntry = SceneRegistry.fromThemeKey(d.themeKey)
         if (sceneEntry != null) {
             // Speed scene: a STATIC frame of the same renderer the hero and
-            // bubble animate (RemoteViews can't animate; the 1 Hz service push
-            // effectively plays the scene at 1 fps). Scrim keeps text legible.
-            drawSceneMotif(c, wf, hf, d, sceneEntry)
+            // bubble animate (RemoteViews can't animate; the flip-book layout
+            // cycles 8 of these launcher-side). Scrim keeps text legible.
+            drawSceneMotif(c, wf, hf, d, sceneEntry, sceneTimeS)
             sceneScrim(c, wf, hf)
             heroTexts(c, w, h, d, fg, fg60, sparkline = false)
         } else when (d.themeKey) {
@@ -251,7 +263,10 @@ object WidgetPainters {
     private val sceneCache = HashMap<String, SpeedScene>()
     private val sceneState = SceneState()
 
-    private fun drawSceneMotif(c: Canvas, wf: Float, hf: Float, d: WidgetData, entry: SceneRegistry.Entry) {
+    private fun drawSceneMotif(
+        c: Canvas, wf: Float, hf: Float, d: WidgetData,
+        entry: SceneRegistry.Entry, sceneTimeS: Float = -1f,
+    ) {
         val scene = sceneCache.getOrPut(entry.id) { entry.factory() }
         val mbps = d.downBps / 1_048_576f
         val th = d.tierThresholds.toFloatArray()
@@ -262,8 +277,10 @@ object WidgetPainters {
             tierFrac = SpeedTiers.tierFrac(mbps, th)
             tierProgress = SpeedTiers.tierProgress(mbps)
             accentArgb = SpeedTiers.blendAccentArgb(mbps)
-            // Wall-clock scene time: consecutive 1 Hz pushes advance the scene.
-            timeS = (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
+            // Wall-clock scene time (flip-book frames pass explicit offsets so
+            // the launcher-side cycle continues the same timeline).
+            timeS = if (sceneTimeS >= 0f) sceneTimeS
+            else (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
             dtS = 0f                              // static frame, no pool stepping
             dark = true
         }
