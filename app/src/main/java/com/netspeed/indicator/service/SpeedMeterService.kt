@@ -478,6 +478,12 @@ class SpeedMeterService : LifecycleService() {
         // Lottie scene: resolve the composition (cached); a failed parse falls
         // back to the flame so the toggle is never silently dead.
         var fxKey = settings.bubbleFx
+        // "Match theme": the bubble plays whatever speed scene the hero theme
+        // is; non-scene themes fall back to no effect.
+        if (fxKey == "theme") {
+            fxKey = com.netspeed.indicator.render.scenes.SceneRegistry
+                .fromThemeKey(settings.heroTheme.storageKey)?.id ?: "none"
+        }
         var lottie: com.airbnb.lottie.LottieComposition? = null
         if (fxKey == "lottie") {
             lottie = lottieFor(settings.bubbleLottieUri)
@@ -501,6 +507,9 @@ class SpeedMeterService : LifecycleService() {
             // plus the user's tier thresholds for exact gear/journey mapping.
             sceneMbps = downShown / 1_048_576f,
             tierThresholds = settings.thresholdsArray(),
+            // Background "None" = the scene drops its own backdrop too: only
+            // the characters/elements float on the wallpaper.
+            sceneTransparentBg = Color.alpha(settings.iconBgColor) == 0,
         )
     }
 

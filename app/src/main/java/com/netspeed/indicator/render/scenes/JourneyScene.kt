@@ -90,9 +90,11 @@ class JourneyScene : SpeedScene {
 
         // Sky: banded vertical gradient (colors move with tb, so no cached shader).
         paint.style = Paint.Style.FILL
-        for (i in 0 until BANDS) {
-            paint.color = lerpArgb(topC, botC, (i + 0.5f) / BANDS)
-            canvas.drawRect(0f, h * i / BANDS, w, h * (i + 1) / BANDS, paint)
+        if (!s.transparentBg) {
+            for (i in 0 until BANDS) {
+                paint.color = lerpArgb(topC, botC, (i + 0.5f) / BANDS)
+                canvas.drawRect(0f, h * i / BANDS, w, h * (i + 1) / BANDS, paint)
+            }
         }
 
         // Camera shake during the rocket climb.

@@ -37,14 +37,16 @@ class BlobScene : SpeedScene {
         val k = h / 70f
         val sc = s.sc
 
-        if (bgW != w) {
-            bgPaint.shader = LinearGradient(
-                0f, 0f, w, 0f,
-                0xFF131726.toInt(), 0xFF1A2033.toInt(), Shader.TileMode.CLAMP
-            )
-            bgW = w
+        if (!s.transparentBg) {
+            if (bgW != w) {
+                bgPaint.shader = LinearGradient(
+                    0f, 0f, w, 0f,
+                    0xFF131726.toInt(), 0xFF1A2033.toInt(), Shader.TileMode.CLAMP
+                )
+                bgW = w
+            }
+            canvas.drawRect(0f, 0f, w, h, bgPaint)
         }
-        canvas.drawRect(0f, 0f, w, h, bgPaint)
 
         // Wind streaks, right→left at 200*sc dp/s — analytic, fine at dtS=0.
         val streaks = (sc * 8f).toInt()

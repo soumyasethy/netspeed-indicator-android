@@ -33,18 +33,20 @@ class TachScene : SpeedScene {
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
         val k = h / 70f
 
-        paint.style = Paint.Style.FILL
-        paint.color = 0xFF101218.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.style = Paint.Style.FILL
+            paint.color = 0xFF101218.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
 
-        // Faint diagonal carbon texture.
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 1f * k
-        paint.color = 0x0DFFFFFF
-        var tx = 0f
-        while (tx < w) {
-            canvas.drawLine(tx, 0f, tx + 20f * k, h, paint)
-            tx += 40f * k
+            // Faint diagonal carbon texture.
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1f * k
+            paint.color = 0x0DFFFFFF
+            var tx = 0f
+            while (tx < w) {
+                canvas.drawLine(tx, 0f, tx + 20f * k, h, paint)
+                tx += 40f * k
+            }
         }
         paint.style = Paint.Style.FILL
 

@@ -181,6 +181,7 @@ class FloatingChip(
         lottie: com.airbnb.lottie.LottieComposition? = null,
         sceneMbps: Float = 0f,
         tierThresholds: FloatArray = com.netspeed.indicator.core.SpeedTiers.DEFAULT_THRESHOLDS,
+        sceneTransparentBg: Boolean = false,
     ) {
         val iv = view ?: return
         val density = context.resources.displayMetrics.density
@@ -213,7 +214,7 @@ class FloatingChip(
         }
         iv.placement = fxPlacement
         iv.setLottie(lottie)
-        iv.setSceneSpeed(sceneMbps, tierThresholds)
+        iv.setSceneSpeed(sceneMbps, tierThresholds, sceneTransparentBg)
         iv.setEffect(fxKey, accentArgb)
         iv.intensity = intensity
         iv.setChip(scaled)

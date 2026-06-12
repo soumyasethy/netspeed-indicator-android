@@ -213,6 +213,7 @@ private fun demoMbps(t: Float): Float = (sin(t * 0.25f) * 0.5f + 0.5f) * 46f + 1
 
 private val BUILTINS = listOf(
     Triple("none", "—", "None"),
+    Triple("theme", "🎨", "Match theme"),
     Triple("flame", "🔥", "Flame"),
     Triple("glow", "✨", "Glow"),
     Triple("sparks", "⚡", "Sparks"),

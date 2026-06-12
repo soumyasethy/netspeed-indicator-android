@@ -29,8 +29,10 @@ class HeartbeatScene : SpeedScene {
         val cy = h / 2f
 
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF10131F.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = 0xFF10131F.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         val crawling = s.mbps < 1f
         val faint = if (crawling) 0.45f else 1f

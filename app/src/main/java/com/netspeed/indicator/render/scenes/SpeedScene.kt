@@ -54,6 +54,11 @@ class SceneState {
 
     /** Dark variant flag (manga paper, turbine night). */
     var dark = true
+
+    /** Skip the scene's opaque backdrop — only the foreground elements draw.
+     *  The bubble sets this when the user's icon background is "None", so the
+     *  characters float directly on the wallpaper. */
+    var transparentBg = false
 }
 
 /**

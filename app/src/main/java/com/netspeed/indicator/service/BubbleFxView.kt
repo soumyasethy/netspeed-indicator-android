@@ -125,8 +125,9 @@ class BubbleFxView(context: Context) : View(context) {
     }
 
     /** 1 Hz speed drive from the service; the view smooths it per frame. */
-    fun setSceneSpeed(mbps: Float, tierThresholds: FloatArray) {
+    fun setSceneSpeed(mbps: Float, tierThresholds: FloatArray, transparentBg: Boolean = false) {
         sceneTargetMbps = mbps
+        sceneState.transparentBg = transparentBg
         if (!thresholds.contentEquals(tierThresholds)) {
             thresholds = tierThresholds
             sceneTier.setThresholds(tierThresholds)

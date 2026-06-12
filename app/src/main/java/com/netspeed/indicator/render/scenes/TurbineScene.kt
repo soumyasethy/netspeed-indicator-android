@@ -37,20 +37,22 @@ class TurbineScene : SpeedScene {
         val night = s.dark
 
         paint.style = Paint.Style.FILL
-        if (night) {
-            paint.color = 0xFF0E1626.toInt()
-            canvas.drawRect(0f, 0f, w, h, paint)
-        } else {
-            if (skyH != h) {
-                skyShader = LinearGradient(
-                    0f, 0f, 0f, h,
-                    0xFF9CC7EE.toInt(), 0xFFCFE6F7.toInt(), Shader.TileMode.CLAMP
-                )
-                skyH = h
+        if (!s.transparentBg) {
+            if (night) {
+                paint.color = 0xFF0E1626.toInt()
+                canvas.drawRect(0f, 0f, w, h, paint)
+            } else {
+                if (skyH != h) {
+                    skyShader = LinearGradient(
+                        0f, 0f, 0f, h,
+                        0xFF9CC7EE.toInt(), 0xFFCFE6F7.toInt(), Shader.TileMode.CLAMP
+                    )
+                    skyH = h
+                }
+                paint.shader = skyShader
+                canvas.drawRect(0f, 0f, w, h, paint)
+                paint.shader = null
             }
-            paint.shader = skyShader
-            canvas.drawRect(0f, 0f, w, h, paint)
-            paint.shader = null
         }
 
         // Clouds — analytic parallax drift (same wind as the rotor), wrapping

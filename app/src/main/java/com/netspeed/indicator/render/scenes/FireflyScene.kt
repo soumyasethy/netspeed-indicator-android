@@ -47,20 +47,22 @@ class FireflyScene : SpeedScene {
         val e = s.sc
         val t = s.timeS
 
-        if (gradH != h) {
-            bgPaint.shader = LinearGradient(
-                0f, 0f, 0f, h,
-                0xFF0D1B2A.toInt(), 0xFF16283C.toInt(), Shader.TileMode.CLAMP
-            )
-            gradH = h
-        }
-        canvas.drawRect(0f, 0f, w, h, bgPaint)
+        if (!s.transparentBg) {
+            if (gradH != h) {
+                bgPaint.shader = LinearGradient(
+                    0f, 0f, 0f, h,
+                    0xFF0D1B2A.toInt(), 0xFF16283C.toInt(), Shader.TileMode.CLAMP
+                )
+                gradH = h
+            }
+            canvas.drawRect(0f, 0f, w, h, bgPaint)
 
-        // Ground ellipse hugging the bottom edge.
-        paint.color = 0xFF0A1420.toInt()
-        val gy = h + 14f * k
-        rect.set(w / 2f - w * 0.7f, gy - 22f * k, w / 2f + w * 0.7f, gy + 22f * k)
-        canvas.drawOval(rect, paint)
+            // Ground ellipse hugging the bottom edge.
+            paint.color = 0xFF0A1420.toInt()
+            val gy = h + 14f * k
+            rect.set(w / 2f - w * 0.7f, gy - 22f * k, w / 2f + w * 0.7f, gy + 22f * k)
+            canvas.drawOval(rect, paint)
+        }
 
         val wanderX = (8f + e * 46f) * k * 1.6f
         val wanderY = (8f + e * 22f) * k

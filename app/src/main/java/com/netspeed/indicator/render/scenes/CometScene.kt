@@ -46,8 +46,10 @@ class CometScene : SpeedScene {
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF0B1026.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = 0xFF0B1026.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         for (i in 0 until STARS) {
             val a = 0.25f + 0.35f * abs(sin(s.timeS * 2f + starP[i]))

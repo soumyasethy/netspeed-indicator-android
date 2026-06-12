@@ -29,8 +29,10 @@ class MangaScene : SpeedScene {
         val ink = if (s.dark) WHITE else INK   // INK doubles as the dark paper
 
         paint.style = Paint.Style.FILL
-        paint.color = if (s.dark) INK else PAPER
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = if (s.dark) INK else PAPER
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         val cx = w * 0.62f
         val cy = h * 0.5f

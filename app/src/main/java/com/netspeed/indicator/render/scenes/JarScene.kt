@@ -33,8 +33,10 @@ class JarScene : SpeedScene {
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF0D1020.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = 0xFF0D1020.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         val jx = w / 2f
         val jt = 14f * k

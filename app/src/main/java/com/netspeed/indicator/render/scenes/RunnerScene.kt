@@ -34,8 +34,10 @@ class RunnerScene : SpeedScene {
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF151A2A.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = 0xFF151A2A.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         val gy = h * 0.78f
 

@@ -452,6 +452,7 @@ fun SettingsScreen(
                     onPick = { tap(); onBubbleFx(it) },
                 )
                 val sceneActive = settings.bubbleFx == "lottie" ||
+                    settings.bubbleFx == "theme" ||
                     SceneRegistry.isScene(settings.bubbleFx)
                 if (sceneActive) {
                     if (settings.bubbleFx == "lottie") {

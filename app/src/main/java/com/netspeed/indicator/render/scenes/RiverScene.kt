@@ -44,8 +44,10 @@ class RiverScene : SpeedScene {
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF0E1626.toInt()
-        canvas.drawRect(0f, 0f, w, h, paint)
+        if (!s.transparentBg) {
+            paint.color = 0xFF0E1626.toInt()
+            canvas.drawRect(0f, 0f, w, h, paint)
+        }
 
         // Three lane strips: 10-wide white 6% lines at y 18/35/52 in ref space.
         paint.color = 0x0FFFFFFF
