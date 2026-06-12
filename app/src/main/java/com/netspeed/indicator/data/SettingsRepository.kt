@@ -64,6 +64,14 @@ data class Settings(
     val floatingChipScale: Float = 1f,
     /** Bubble width boost — multiplies the chip's horizontal padding (1.0–2.5). */
     val floatingChipPadScale: Float = 1f,
+    /** Bubble glyph weight: heavy (default, matches the bar) or regular. */
+    val bubbleBold: Boolean = true,
+    /** Bubble font family key: sans / condensed / serif / mono (system faces). */
+    val bubbleFont: String = "sans",
+    /** Bubble letter-spacing in em (0–0.12) — relaxes clumpy horizontal text. */
+    val bubbleTracking: Float = 0f,
+    /** Bubble speed-reactive animation: none / flame / glow / sparks. */
+    val bubbleFx: String = "none",
     /** Persisted bubble position (window coordinates). */
     val floatingChipX: Int = DEFAULT_CHIP_X,
     val floatingChipY: Int = DEFAULT_CHIP_Y,
@@ -119,8 +127,12 @@ class SettingsRepository(private val context: Context) {
             iconBorderWidth = (p[KEY_ICON_BORDER_WIDTH] ?: 1).coerceIn(1, 3),
             floatingChip = p[KEY_FLOAT_CHIP] ?: true,
             hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: false,
-            floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
+            floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.5f, 1.6f),
             floatingChipPadScale = (p[KEY_FLOAT_PAD] ?: 1f).coerceIn(1f, 2.5f),
+            bubbleBold = p[KEY_BUBBLE_BOLD] ?: true,
+            bubbleFont = p[KEY_BUBBLE_FONT] ?: "sans",
+            bubbleTracking = (p[KEY_BUBBLE_TRACKING] ?: 0f).coerceIn(0f, 0.12f),
+            bubbleFx = p[KEY_BUBBLE_FX] ?: "none",
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
@@ -167,7 +179,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDualIconsBlocked(value: Boolean) = edit { it[KEY_DUAL_BLOCKED] = value }
     suspend fun setFloatingChip(value: Boolean) = edit { it[KEY_FLOAT_CHIP] = value }
     suspend fun setHideIconWhenBubble(value: Boolean) = edit { it[KEY_HIDE_ICON_BUBBLE] = value }
-    suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.8f, 1.6f) }
+    suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.5f, 1.6f) }
+    suspend fun setBubbleBold(v: Boolean) = edit { it[KEY_BUBBLE_BOLD] = v }
+    suspend fun setBubbleFont(v: String) = edit { it[KEY_BUBBLE_FONT] = v }
+    suspend fun setBubbleTracking(v: Float) = edit { it[KEY_BUBBLE_TRACKING] = v.coerceIn(0f, 0.12f) }
+    suspend fun setBubbleFx(v: String) = edit { it[KEY_BUBBLE_FX] = v }
     suspend fun setFloatingChipPadScale(v: Float) = edit { it[KEY_FLOAT_PAD] = v.coerceIn(1f, 2.5f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
     suspend fun setBubbleFreePlacement(value: Boolean) = edit { it[KEY_FLOAT_FREE] = value }
@@ -229,6 +245,10 @@ class SettingsRepository(private val context: Context) {
         val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
         val KEY_FLOAT_FREE = booleanPreferencesKey("bubble_free_placement")
         val KEY_FLOAT_PAD = floatPreferencesKey("floating_chip_pad_scale")
+        val KEY_BUBBLE_BOLD = booleanPreferencesKey("bubble_bold")
+        val KEY_BUBBLE_FONT = stringPreferencesKey("bubble_font")
+        val KEY_BUBBLE_TRACKING = floatPreferencesKey("bubble_tracking")
+        val KEY_BUBBLE_FX = stringPreferencesKey("bubble_fx")
         val KEY_FLOAT_SCALE = floatPreferencesKey("floating_chip_scale")
         val KEY_FLOAT_X = intPreferencesKey("floating_chip_x")
         val KEY_FLOAT_Y = intPreferencesKey("floating_chip_y")

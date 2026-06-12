@@ -8,7 +8,6 @@ import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
-import android.widget.ImageView
 import com.netspeed.indicator.ui.MainActivity
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -30,7 +29,7 @@ class FloatingChip(
 ) {
 
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    private var view: ImageView? = null
+    private var view: BubbleFxView? = null
     private var params: WindowManager.LayoutParams? = null
 
     /** Display height of the chip in dp at scale 1.0 (the bubble-size slider scales this). */
@@ -95,10 +94,7 @@ class FloatingChip(
     fun show(x: Int, y: Int, scale: Float) {
         this.scale = scale
         if (view != null) return
-        val iv = ImageView(context).apply {
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
+        val iv = BubbleFxView(context)
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -169,18 +165,21 @@ class FloatingChip(
      * bitmap already carries the chosen style / colours / outline, so the bubble is
      * just a scaled image of it — no separate colour plumbing needed.
      */
-    fun update(bitmap: Bitmap) {
+    fun update(bitmap: Bitmap, fxKey: String = "none", intensity: Float = 0f, accentArgb: Int = 0xFF7C3AED.toInt()) {
         val iv = view ?: return
         val density = context.resources.displayMetrics.density
         val targetH = BASE_HEIGHT_DP * scale * density
         val s = targetH / bitmap.height.coerceAtLeast(1)
         val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
-        iv.setImageBitmap(scaled)
-        // Re-layout only when the chip's size actually changed (content width or
-        // bubble-size slider) — a per-second updateViewLayout would fight an
-        // in-progress drag. Clamp too: a grown chip must not poke off-screen.
-        if (iv.width != targetW || iv.height != targetH.roundToInt()) {
+        iv.setEffect(fxKey, accentArgb)
+        iv.intensity = intensity
+        iv.setChip(scaled)
+        iv.measure(android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.UNSPECIFIED)
+        // Re-layout only when the view's size actually changed (content width,
+        // bubble-size slider, fx margin) — a per-second updateViewLayout would
+        // fight an in-progress drag. Clamp too: growth must not poke off-screen.
+        if (iv.measuredWidth != iv.width || iv.measuredHeight != iv.height) {
             params?.let { lp ->
                 clamp(lp)
                 runCatching { wm.updateViewLayout(iv, lp) }

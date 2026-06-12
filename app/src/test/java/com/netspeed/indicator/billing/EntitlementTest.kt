@@ -54,6 +54,13 @@ class EntitlementTest {
         assertFalse(FeatureGate.floatingBubble(e))
         assertFalse(FeatureGate.widgets(e))
         assertFalse(FeatureGate.customColorPicker(e))
+        assertFalse(FeatureGate.bubbleStyling(e))
+    }
+
+    @Test fun bubble_styling_follows_unlock_and_kill_switch() {
+        assertTrue(FeatureGate.bubbleStyling(Entitlement(suiteUnlocked = true)))
+        FeatureGate.gatingActive = false
+        assertTrue(FeatureGate.bubbleStyling(Entitlement.LOCKED))
     }
 
     @Test fun gate_allows_everything_when_unlocked() {

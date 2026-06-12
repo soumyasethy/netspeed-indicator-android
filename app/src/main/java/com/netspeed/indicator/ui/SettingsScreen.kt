@@ -109,6 +109,10 @@ fun SettingsScreen(
     onBubbleNudge: (dxPx: Int, dyPx: Int) -> Unit,
     onBubblePreset: (corner: BubbleCorner) -> Unit,
     onFloatingChipPadScale: (Float) -> Unit,
+    onBubbleBold: (Boolean) -> Unit,
+    onBubbleFont: (String) -> Unit,
+    onBubbleTracking: (Float) -> Unit,
+    onBubbleFx: (String) -> Unit,
     dailyHistory: List<com.netspeed.indicator.data.DayUsage>,
     onStyleSelect: (IconStyle) -> Unit,
     onPanelToggle: (Boolean) -> Unit,
@@ -330,8 +334,8 @@ fun SettingsScreen(
                     Slider(
                         value = settings.floatingChipScale,
                         onValueChange = { onFloatingChipScale(((it * 20f).toInt() / 20f)) },
-                        valueRange = 0.8f..1.6f,
-                        steps = 15,
+                        valueRange = 0.5f..1.6f,
+                        steps = 21,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -353,7 +357,46 @@ fun SettingsScreen(
                         valueRange = 1f..2.5f,
                         steps = 29,
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Letter spacing",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "%.2f".format(settings.bubbleTracking),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        )
+                    }
+                    Slider(
+                        value = settings.bubbleTracking,
+                        onValueChange = { onBubbleTracking(((it * 100f).toInt() / 100f)) },
+                        valueRange = 0f..0.12f,
+                        steps = 11,
+                    )
                 }
+                ToggleRow(
+                    title = "Bold bubble text",
+                    subtitle = "Off = lighter, leaner glyphs for a smaller badge.",
+                    checked = settings.bubbleBold,
+                    onCheckedChange = { tap(); onBubbleBold(it) },
+                    tierColor = tierColor,
+                )
+                ChipPickRow(
+                    label = "Bubble font",
+                    options = listOf("sans" to "Sans", "condensed" to "Condensed", "serif" to "Serif", "mono" to "Mono"),
+                    selected = settings.bubbleFont,
+                    onPick = { tap(); onBubbleFont(it) },
+                )
+                ChipPickRow(
+                    label = "Bubble animation — reacts to your live speed",
+                    options = listOf("none" to "None", "flame" to "🔥 Flame", "glow" to "✨ Glow", "sparks" to "⚡ Sparks"),
+                    selected = settings.bubbleFx,
+                    onPick = { tap(); onBubbleFx(it) },
+                )
             }
 
             Hairline()
@@ -1293,6 +1336,41 @@ private fun SkinRow(
                         color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     )
                 }
+            }
+        }
+    }
+}
+
+/** Generic labelled chip row: pick one key from (key → label) options. */
+@Composable
+private fun ChipPickRow(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onPick: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (key, text) ->
+                val on = key == selected
+                Text(
+                    text,
+                    fontSize = 12.sp,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (on) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        )
+                        .selectable(selected = on, onClick = { onPick(key) })
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
             }
         }
     }

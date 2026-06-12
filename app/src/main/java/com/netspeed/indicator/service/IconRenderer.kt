@@ -76,6 +76,14 @@ class IconRenderer(private val sizePx: Int = 96) {
     var chipPadScale: Float = 1f
         set(value) { field = value.coerceIn(1f, 2.5f) }
 
+    /** Glyph face for OUR surfaces (the bubble): defaults match the bar's heavy
+     *  sans; the bubble renderer overrides per user choice. */
+    var glyphTypeface: Typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+
+    /** Letter-spacing (em) applied to all glyph paints — relaxes dense rows. */
+    var letterSpacingEm: Float = 0f
+        set(value) { field = value.coerceIn(0f, 0.2f) }
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
@@ -150,9 +158,11 @@ class IconRenderer(private val sizePx: Int = 96) {
         if (style == IconStyle.ARROWS_H) IconStyle.ARROWS else style
 
     private fun applyColors() {
-        valuePaint.color = fgColorArgb
-        unitPaint.color = fgColorArgb
-        rowPaint.color = fgColorArgb
+        for (paint in arrayOf(valuePaint, unitPaint, rowPaint)) {
+            paint.color = fgColorArgb
+            paint.typeface = glyphTypeface
+            paint.letterSpacing = letterSpacingEm
+        }
         arrowPaint.color = fgColorArgb
         bgPaint.color = bgColorArgb
         borderPaint.color = borderColorArgb
@@ -305,16 +315,34 @@ class IconRenderer(private val sizePx: Int = 96) {
     // padding): the OS scales the bitmap into its icon slot, so any transparent
     // margin directly shrinks the visible digits.
 
+    /**
+     * Digits + unit text honouring the CHOSEN [unitStyle] — the single formatter
+     * every style routes through, so "Unit display" applies everywhere (it used
+     * to be ignored by the Arrows/Stacked layouts entirely).
+     * SHORT → "84"/"k"; FULL → "84"/"KB/s"; BELOW callers stack the two parts.
+     */
+    private fun unitParts(bps: Long): Pair<String, String> = when (unitStyle) {
+        UnitStyle.FULL -> SpeedFormatter.parts(bps).let { it.value to it.unit }
+        else -> SpeedFormatter.compact(bps).let { t ->
+            if (t.last().isLetter()) t.dropLast(1) to t.takeLast(1) else t to ""
+        }
+    }
+
+    /** One-row token per the chosen unit style: "84k" or "84 KB/s". */
+    private fun unitToken(bps: Long): String = unitParts(bps).let { (d, u) ->
+        if (u.isEmpty()) d else if (unitStyle == UnitStyle.FULL) "$d $u" else "$d$u"
+    }
+
     /** Download-only: big value on top, "▼ unit" on the bottom — tight rows. */
     private fun arrowsDownOnly(downBps: Long): Bitmap {
-        val p = SpeedFormatter.parts(downBps)
-        return stackedBitmap(p.value, p.unit, unitArrowDown = true)
+        val (value, unit) = unitParts(downBps)
+        return stackedBitmap(value, unit, unitArrowDown = true)
     }
 
     /** Stacked: value over unit, no arrow — tight rows. */
     private fun stacked(bps: Long): Bitmap {
-        val p = SpeedFormatter.parts(bps)
-        return stackedBitmap(p.value, p.unit, unitArrowDown = null)
+        val (value, unit) = unitParts(bps)
+        return stackedBitmap(value, unit, unitArrowDown = null)
     }
 
     /** Value row + unit row, cap-height sized, zero outer padding. */
@@ -370,8 +398,10 @@ class IconRenderer(private val sizePx: Int = 96) {
         rowPaint.textAlign = Paint.Align.LEFT
         rowPaint.textScaleX = 1f
         sizeForCapHeight(rowPaint, rowCap)
-        val up = SpeedFormatter.compact(upBps)
-        val down = SpeedFormatter.compact(downBps)
+        // Honour the chosen unit style per row ("84k" vs "84 KB/s"; BELOW has no
+        // third row in a two-row layout → falls back to the short token).
+        val up = unitToken(upBps)
+        val down = unitToken(downBps)
         val arrowH = rowCap
         val arrowW = arrowH * 0.55f
         val gap = rowCap * 0.15f
@@ -467,7 +497,14 @@ class IconRenderer(private val sizePx: Int = 96) {
      * size, bounded only by the OS notification-icon slot height.
      */
     private fun arrowsHorizontal(downBps: Long, upBps: Long): Bitmap {
-        val p = SpeedFormatter.compactPair(downBps, upBps)
+        val raw = SpeedFormatter.compactPair(downBps, upBps)
+        // Honour the chosen unit style for the shared trailing unit: SHORT keeps
+        // the compact "k"/"m"; FULL expands it ("KB/s"/"MB/s"); BELOW → SHORT
+        // (no second row in this one-row layout).
+        val p = if (unitStyle == UnitStyle.FULL) {
+            val full = if (raw.unit == "m") "MB/s" else "KB/s"
+            SpeedFormatter.Pair3(raw.down, raw.up, full)
+        } else raw
         // The digits are the tallest element and fill ~0.92 of a bitmap cropped tight
         // top/bottom AND side-to-side. One UI fits a notification icon into its slot
         // preserving aspect ratio, so a *wide* bitmap is fit-by-width and ends up

@@ -66,6 +66,9 @@ object FeatureGate {
     fun widgets(e: Entitlement) = !gatingActive || e.suiteUnlocked
     fun customColorPicker(e: Entitlement) = !gatingActive || e.suiteUnlocked
 
+    /** Bubble identity extras: bold/font/letter-spacing/lean sizes + motion FX. */
+    fun bubbleStyling(e: Entitlement) = !gatingActive || e.suiteUnlocked
+
     /** Theme at [ordinal] is allowed if free-tier or the suite is unlocked. */
     fun themeAllowed(ordinal: Int, e: Entitlement) =
         !gatingActive || e.suiteUnlocked || ordinal < FREE_THEME_COUNT

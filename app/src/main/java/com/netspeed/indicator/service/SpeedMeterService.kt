@@ -412,16 +412,36 @@ class SpeedMeterService : LifecycleService() {
             if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         bubbleRenderer.unitStyle = settings.iconUnitStyle
         bubbleRenderer.chipPadScale = settings.floatingChipPadScale
+        bubbleRenderer.letterSpacingEm = settings.bubbleTracking
+        bubbleRenderer.glyphTypeface = bubbleTypeface(settings.bubbleFont, settings.bubbleBold)
         bubbleRenderer.borderColorArgb = settings.iconBorderColor
         bubbleRenderer.borderWidth = settings.iconBorderWidth
         floatingChip.update(
-            bubbleRenderer.renderChip(
+            bitmap = bubbleRenderer.renderChip(
                 style = settings.iconStyle,
                 downBps = downShown,
                 upBps = upShown,
                 showCombined = settings.showCombined,
             ),
+            fxKey = settings.bubbleFx,
+            // Normalised "how hard is the network working" for the FX engine —
+            // log-ish ramp so KB/s traffic already animates gently.
+            intensity = ((downShown + upShown) / (8f * 1024 * 1024)).coerceIn(0f, 1f)
+                .let { kotlin.math.sqrt(it) },
+            accentArgb = accent,
         )
+    }
+
+    /** Bubble glyph face from the user's font + weight choice (system faces only). */
+    private fun bubbleTypeface(fontKey: String, bold: Boolean): android.graphics.Typeface {
+        val family = when (fontKey) {
+            "condensed" -> "sans-serif-condensed"
+            "serif" -> "serif"
+            "mono" -> "monospace"
+            else -> if (bold) "sans-serif-black" else "sans-serif"
+        }
+        val style = if (bold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL
+        return android.graphics.Typeface.create(family, style)
     }
 
     private fun pushWidgets(downBps: Long, upBps: Long) {

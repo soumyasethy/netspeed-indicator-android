@@ -73,6 +73,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    lint {
+        // False positive: we use ComponentActivity (activity-compose), not
+        // Fragments — the check fires on a stale transitive fragment artifact.
+        // Adding fragment-ktx just to silence it would cost APK bytes.
+        disable += "InvalidFragmentVersionForActivityResult"
+    }
 }
 
 dependencies {
