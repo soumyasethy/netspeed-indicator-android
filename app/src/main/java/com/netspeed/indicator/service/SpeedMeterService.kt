@@ -547,6 +547,7 @@ class SpeedMeterService : LifecycleService() {
                 tierThresholds = settings.tierThresholds,
                 textH = widgetTextPos().first,
                 textV = widgetTextPos().second,
+                textFormat = settings.heroTextFormat,
             ),
         )
     }

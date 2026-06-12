@@ -119,6 +119,7 @@ fun SettingsScreen(
     onPickLottieFile: () -> Unit,
     onBubbleFxPlacement: (String) -> Unit,
     onHeroTextPos: (String) -> Unit,
+    onHeroTextFormat: (String) -> Unit,
     onClearLottieFile: () -> Unit,
     onBubbleLockSize: (Boolean) -> Unit,
     onBubbleBoxW: (Int) -> Unit,
@@ -184,6 +185,7 @@ fun SettingsScreen(
             thresholds = settings.thresholdsArray(),
             tierNames = settings.tierNames,
             heroTextPos = settings.heroTextPos,
+            heroTextFormat = settings.heroTextFormat,
             modifier = Modifier.height(heroHeight),
         )
         TierScaleBar(
@@ -210,6 +212,12 @@ fun SettingsScreen(
                 onPick = { tap(); onHeroTextPos(it) },
             )
         }
+        TextFormatRow(
+            selected = settings.heroTextFormat,
+            live = live,
+            onPick = { tap(); onHeroTextFormat(it) },
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
         // Right under the live hero: add ANY of the 5 widget styles straight to the
         // home screen (one tap → launcher's pin prompt). No digging in menus.
         AddToHomeRow(
@@ -1928,6 +1936,116 @@ private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
                 lineHeight = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
             )
+        }
+    }
+}
+
+/** Info-layout picker: ten formats, each card a true miniature of the layout. */
+@Composable
+private fun TextFormatRow(
+    selected: String,
+    live: LiveSpeed,
+    onPick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val down = if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 8_808_038L
+    val up = if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 1_258_291L
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Info layout — what the text block shows",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+        ) {
+            items(com.netspeed.indicator.data.TextFormat.entries.size) { i ->
+                val fmt = com.netspeed.indicator.data.TextFormat.entries[i]
+                val on = selected == fmt.storageKey
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.width(120.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(76.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF101218))
+                            .border(
+                                width = if (on) 2.dp else 1.dp,
+                                color = if (on) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                            .selectable(selected = on, onClick = { onPick(fmt.storageKey) }),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        FormatMiniPreview(fmt, down, up)
+                    }
+                    Text(
+                        fmt.label,
+                        fontSize = 10.sp,
+                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (on) 1f else 0.65f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Static miniature of a TextFormat using real formatter output. */
+@Composable
+private fun FormatMiniPreview(fmt: com.netspeed.indicator.data.TextFormat, down: Long, up: Long) {
+    val w = Color.White
+    val w7 = Color.White.copy(alpha = 0.7f)
+    val w5 = Color.White.copy(alpha = 0.5f)
+    val dParts = SpeedFormatter.parts(down)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        when (fmt) {
+            com.netspeed.indicator.data.TextFormat.CLASSIC -> {
+                Text("Steady", fontSize = 7.sp, color = w7)
+                Text("${dParts.value} ${dParts.unit}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = w)
+                Text("▲ ${SpeedFormatter.inline(up)} · 2.3 GB", fontSize = 7.sp, color = w7)
+                Text("peak · p90 · jitter", fontSize = 6.sp, color = w5)
+            }
+            com.netspeed.indicator.data.TextFormat.MINIMAL ->
+                Text("${dParts.value} ${dParts.unit}", fontSize = 18.sp, fontWeight = FontWeight.Black, color = w)
+            com.netspeed.indicator.data.TextFormat.ZEN ->
+                Text(dParts.value, fontSize = 22.sp, fontWeight = FontWeight.Light, color = w)
+            com.netspeed.indicator.data.TextFormat.NUMBER_UP -> {
+                Text("${dParts.value} ${dParts.unit}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = w)
+                Text("▲ ${SpeedFormatter.inline(up)}", fontSize = 8.sp, color = w7)
+            }
+            com.netspeed.indicator.data.TextFormat.DUAL -> {
+                Text("↓ ${dParts.value} ${dParts.unit}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = w)
+                Text("↑ ${SpeedFormatter.inline(up)}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = w7)
+            }
+            com.netspeed.indicator.data.TextFormat.COMPACT ->
+                Text("↓ ${SpeedFormatter.inline(down)} ↑ ${SpeedFormatter.inline(up)}", fontSize = 9.sp, color = w)
+            com.netspeed.indicator.data.TextFormat.TIER_WORD -> {
+                Text("Steady", fontSize = 15.sp, fontWeight = FontWeight.Black, color = w)
+                Text("↓ ${SpeedFormatter.inline(down)}", fontSize = 8.sp, color = w7)
+            }
+            com.netspeed.indicator.data.TextFormat.STATS -> {
+                Text("${dParts.value} ${dParts.unit}", fontSize = 14.sp, fontWeight = FontWeight.Black, color = w)
+                Text("▲up · pk · p90 · ±jit", fontSize = 7.sp, color = w5)
+            }
+            com.netspeed.indicator.data.TextFormat.DATA -> {
+                Text("${dParts.value} ${dParts.unit}", fontSize = 14.sp, fontWeight = FontWeight.Black, color = w)
+                Text("2.3 GB today", fontSize = 8.sp, color = w7)
+                Text("182 GB lifetime", fontSize = 7.sp, color = w5)
+            }
+            com.netspeed.indicator.data.TextFormat.PRO -> {
+                Text("DL  ${SpeedFormatter.inline(down)}", fontSize = 8.sp, color = w7, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                Text("UL  ${SpeedFormatter.inline(up)}", fontSize = 8.sp, color = w7, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                Text("PK  15 MB/s", fontSize = 8.sp, color = w7, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                Text("P90 8.1 MB/s", fontSize = 8.sp, color = w7, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+            }
         }
     }
 }

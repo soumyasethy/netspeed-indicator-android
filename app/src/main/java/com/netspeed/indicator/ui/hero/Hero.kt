@@ -106,6 +106,7 @@ fun TierFlowHero(
     thresholds: FloatArray = SpeedTiers.DEFAULT_THRESHOLDS,
     tierNames: List<String> = SpeedTiers.ALL.map { it.defaultWord },
     heroTextPos: String = "auto",
+    heroTextFormat: String = "classic",
     modifier: Modifier = Modifier,
 ) {
     val dark = isSystemInDarkTheme()
@@ -215,13 +216,13 @@ fun TierFlowHero(
     ) {
         // Passive connection stats from the rolling samples (no INTERNET perm —
         // RTT probing is impossible by design; this is throughput consistency).
-        val statsLine = if (history.size >= 5) {
-            val samples = history.toList()
-            val p90 = com.netspeed.indicator.core.SpeedStats.p90(samples)
-            val jit = com.netspeed.indicator.core.SpeedStats.jitter(samples)
+        val samples = history.toList()
+        val p90f = com.netspeed.indicator.core.SpeedStats.p90(samples)
+        val jitf = com.netspeed.indicator.core.SpeedStats.jitter(samples)
+        val statsLine = if (samples.size >= 5) {
             "peak " + SpeedFormatter.inline(live.peakBytesPerSec) +
-                "  ·  p90 " + String.format("%.1f", p90) + " MB/s" +
-                "  ·  jitter ±" + String.format("%.1f", jit)
+                "  ·  p90 " + String.format("%.1f", p90f) + " MB/s" +
+                "  ·  jitter ±" + String.format("%.1f", jitf)
         } else null
         Box(Modifier.padding(horizontal = if (textH == 0) 0.dp else 28.dp, vertical = if (textV == 0) 0.dp else 22.dp)) {
             when (theme) {
@@ -240,6 +241,8 @@ fun TierFlowHero(
                         tier = tier, tierWord = tierWord, smoothedMBps = smoothedMBps,
                         live = live, fg = fg, mono = mono, compact = textH != 0 || textV != 0,
                         statsLine = statsLine,
+                        format = com.netspeed.indicator.data.TextFormat.fromKey(heroTextFormat),
+                        p90 = p90f, jit = jitf,
                     )
             }
         }
@@ -256,7 +259,15 @@ private fun HeroContent(
     mono: Boolean,
     compact: Boolean = false,
     statsLine: String? = null,
+    format: com.netspeed.indicator.data.TextFormat = com.netspeed.indicator.data.TextFormat.CLASSIC,
+    p90: Float = 0f,
+    jit: Float = 0f,
 ) {
+    val fg85 = fg.copy(alpha = 0.85f)
+    val fg70 = fg.copy(alpha = 0.7f)
+    val fg55 = fg.copy(alpha = 0.55f)
+    @Composable fun line(text: String, size: Int = 12, color: Color = fg70) =
+        androidx.compose.material3.Text(text, color = color, fontSize = size.sp, textAlign = TextAlign.Center)
     Column(
         // Side-aligned scene layouts wrap so the Box alignment can dock the
         // column beside the diorama; the classic layout fills as before.
@@ -267,31 +278,100 @@ private fun HeroContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        TierTag(tier = tier, word = tierWord, fg = fg)
-        Spacer(Modifier.size(14.dp))
-        KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
-        Spacer(Modifier.size(6.dp))
-        androidx.compose.material3.Text(
-            text = if (live.running) tier.defaultSubtitle else "Indicator is off",
-            color = fg.copy(alpha = 0.85f),
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.size(10.dp))
-        androidx.compose.material3.Text(
-            text = "▲ ${SpeedFormatter.inline(live.upBytesPerSec)}  ·  ${SpeedFormatter.total(live.todayBytes)} today",
-            color = fg.copy(alpha = 0.7f),
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
-        )
-        if (statsLine != null) {
-            Spacer(Modifier.size(4.dp))
-            androidx.compose.material3.Text(
-                text = statsLine,
-                color = fg.copy(alpha = 0.55f),
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center,
-            )
+        when (format) {
+            com.netspeed.indicator.data.TextFormat.MINIMAL -> {
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+            }
+            com.netspeed.indicator.data.TextFormat.ZEN -> {
+                androidx.compose.material3.Text(
+                    SpeedFormatter.parts((smoothedMBps * 1_048_576).toLong()).value,
+                    color = fg, fontSize = 64.sp, fontWeight = FontWeight.Light,
+                )
+            }
+            com.netspeed.indicator.data.TextFormat.NUMBER_UP -> {
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+                Spacer(Modifier.size(8.dp))
+                line("▲ ${SpeedFormatter.inline(live.upBytesPerSec)}")
+            }
+            com.netspeed.indicator.data.TextFormat.DUAL -> {
+                line("↓ DOWNLOAD", 10, fg55)
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+                Spacer(Modifier.size(10.dp))
+                line("↑ UPLOAD", 10, fg55)
+                androidx.compose.material3.Text(
+                    SpeedFormatter.inline(live.upBytesPerSec),
+                    color = fg85, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+                )
+            }
+            com.netspeed.indicator.data.TextFormat.COMPACT -> {
+                line(
+                    "↓ ${SpeedFormatter.inline(live.downBytesPerSec)}   ↑ ${SpeedFormatter.inline(live.upBytesPerSec)}",
+                    18, fg,
+                )
+            }
+            com.netspeed.indicator.data.TextFormat.TIER_WORD -> {
+                androidx.compose.material3.Text(
+                    tierWord, color = fg, fontSize = 44.sp, fontWeight = FontWeight.Black,
+                )
+                Spacer(Modifier.size(6.dp))
+                line("↓ ${SpeedFormatter.inline(live.downBytesPerSec)} · ↑ ${SpeedFormatter.inline(live.upBytesPerSec)}", 14, fg85)
+            }
+            com.netspeed.indicator.data.TextFormat.STATS -> {
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+                Spacer(Modifier.size(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        line("▲ ${SpeedFormatter.inline(live.upBytesPerSec)}", 12, fg85)
+                        line("upload", 9, fg55)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        line(SpeedFormatter.inline(live.peakBytesPerSec), 12, fg85)
+                        line("peak", 9, fg55)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        line(String.format("%.1f", p90), 12, fg85)
+                        line("p90 MB/s", 9, fg55)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        line("±" + String.format("%.1f", jit), 12, fg85)
+                        line("jitter", 9, fg55)
+                    }
+                }
+            }
+            com.netspeed.indicator.data.TextFormat.DATA -> {
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+                Spacer(Modifier.size(8.dp))
+                line("${SpeedFormatter.total(live.todayBytes)} today", 16, fg85)
+                line("${SpeedFormatter.total(live.lifetimeBytes)} lifetime", 11, fg55)
+            }
+            com.netspeed.indicator.data.TextFormat.PRO -> {
+                val rows = listOf(
+                    "DL   ${SpeedFormatter.inline(live.downBytesPerSec)}",
+                    "UL   ${SpeedFormatter.inline(live.upBytesPerSec)}",
+                    "PK   ${SpeedFormatter.inline(live.peakBytesPerSec)}",
+                    "P90  ${String.format("%.1f", p90)} MB/s",
+                    "JIT  ±${String.format("%.1f", jit)} MB/s",
+                )
+                rows.forEach {
+                    androidx.compose.material3.Text(
+                        it, color = fg85, fontSize = 14.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    )
+                }
+            }
+            com.netspeed.indicator.data.TextFormat.CLASSIC -> {
+                TierTag(tier = tier, word = tierWord, fg = fg)
+                Spacer(Modifier.size(14.dp))
+                KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
+                Spacer(Modifier.size(6.dp))
+                line(if (live.running) tier.defaultSubtitle else "Indicator is off", 12, fg85)
+                Spacer(Modifier.size(10.dp))
+                line("▲ ${SpeedFormatter.inline(live.upBytesPerSec)}  ·  ${SpeedFormatter.total(live.todayBytes)} today")
+                if (statsLine != null) {
+                    Spacer(Modifier.size(4.dp))
+                    line(statsLine, 10, fg55)
+                }
+            }
         }
     }
 }

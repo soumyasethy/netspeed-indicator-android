@@ -78,6 +78,8 @@ data class Settings(
     val bubbleFxPlacement: String = "behind",
     /** Hero text position over scene themes: auto (per-scene) / left / center / right. */
     val heroTextPos: String = "auto",
+    /** Info layout for the hero/widget text block ([com.netspeed.indicator.data.TextFormat]). */
+    val heroTextFormat: String = "classic",
     /** Fixed-size badge mode: lock the bubble box; content auto-fits inside. */
     val bubbleLockSize: Boolean = false,
     /** Locked box dimensions in dp. */
@@ -148,6 +150,7 @@ class SettingsRepository(private val context: Context) {
             bubbleLottieUri = p[KEY_BUBBLE_LOTTIE] ?: "",
             bubbleFxPlacement = p[KEY_BUBBLE_FX_PLACE] ?: "behind",
             heroTextPos = p[KEY_HERO_TEXT_POS] ?: "auto",
+            heroTextFormat = p[KEY_HERO_TEXT_FORMAT] ?: "classic",
             bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: false,
             bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 0).let { if (it == 0) 0 else it.coerceIn(32, 400) },
             bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 0).let { if (it == 0) 0 else it.coerceIn(20, 200) },
@@ -205,6 +208,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBubbleLottieUri(v: String) = edit { it[KEY_BUBBLE_LOTTIE] = v }
     suspend fun setBubbleFxPlacement(v: String) = edit { it[KEY_BUBBLE_FX_PLACE] = v }
     suspend fun setHeroTextPos(v: String) = edit { it[KEY_HERO_TEXT_POS] = v }
+    suspend fun setHeroTextFormat(v: String) = edit { it[KEY_HERO_TEXT_FORMAT] = v }
     suspend fun setBubbleLockSize(v: Boolean) = edit {
         it[KEY_BUBBLE_LOCK] = v
         // Unlocking clears the stored box so the next lock re-captures the
@@ -284,6 +288,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_BUBBLE_LOTTIE = stringPreferencesKey("bubble_lottie_uri")
         val KEY_BUBBLE_FX_PLACE = stringPreferencesKey("bubble_fx_placement")
         val KEY_HERO_TEXT_POS = stringPreferencesKey("hero_text_pos")
+        val KEY_HERO_TEXT_FORMAT = stringPreferencesKey("hero_text_format")
         val KEY_BUBBLE_LOCK = booleanPreferencesKey("bubble_lock_size")
         val KEY_BUBBLE_BOX_W = intPreferencesKey("bubble_box_w")
         val KEY_BUBBLE_BOX_H = intPreferencesKey("bubble_box_h")

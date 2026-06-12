@@ -51,6 +51,8 @@ data class WidgetData(
     /** Text block placement: horizontal -1/0/1, vertical -1/0/1 (resolved). */
     val textH: Int = -1,
     val textV: Int = 0,
+    /** Info layout key ([com.netspeed.indicator.data.TextFormat]). */
+    val textFormat: String = "classic",
 )
 
 enum class WidgetKind { HERO, DIAL, RINGS, PILL, WEATHER }
@@ -393,56 +395,137 @@ object WidgetPainters {
         sparkline: Boolean, leftFrac: Float = 0.06f,
         hPos: Int = -1, vPos: Int = 0,
     ) {
+        val fmt = com.netspeed.indicator.data.TextFormat.fromKey(d.textFormat)
         val pad = w * leftFrac
         val rightEdge = w - w * 0.06f
         val vOff = h * 0.15f * vPos          // -1 top / 0 centre / +1 bottom
-        val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT)
-        val todayText = "${SpeedFormatter.total(d.todayBytes)} today"
-        c.drawText(todayText, rightEdge, h * 0.18f, todayPaint)
-        if (leftFrac <= 0.06f && hPos == -1 && vPos != -1) {
-            // Brand fits only when the block starts at the edge; measured guard so
-            // it can never touch the right-aligned today figure.
-            val brand = text(h * 0.10f, fg60, align = Paint.Align.LEFT)
-            val todayLeft = rightEdge - todayPaint.measureText(todayText)
-            if (pad + brand.measureText("NetSpeed") < todayLeft - w * 0.03f) {
-                c.drawText("NetSpeed", pad, h * 0.18f, brand)
-            }
-        }
-        val num = SpeedFormatter.parts(d.downBps)
-        var numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
-        var unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
-        // Auto-fit: shrink the row until number + gap + unit fits the card.
-        val avail = rightEdge - pad
-        var rowW = numPaint.measureText(num.value) + w * 0.02f + unitPaint.measureText(num.unit)
-        if (rowW > avail) {
-            val s = avail / rowW
-            numPaint = text(h * 0.34f * s, fg, bold = true, align = Paint.Align.LEFT)
-            unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT)
-            rowW = avail
-        }
         // Horizontal anchor for the whole block: left edge / centred / right edge.
         fun originX(width: Float): Float = when (hPos) {
             0 -> (w - width) / 2f
             1 -> rightEdge - width
             else -> pad
         }
+        fun drawLine(s: String, sizeFrac: Float, y: Float, paintFg: Int, bold: Boolean = false, mono: Boolean = false): Float {
+            val p = text(h * sizeFrac, paintFg, bold = bold, align = Paint.Align.LEFT)
+            if (mono) p.typeface = Typeface.MONOSPACE
+            c.drawText(s, originX(p.measureText(s)), y, p)
+            return p.measureText(s)
+        }
+
+        if (fmt != com.netspeed.indicator.data.TextFormat.ZEN) {
+            val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT)
+            val todayText = "${SpeedFormatter.total(d.todayBytes)} today"
+            c.drawText(todayText, rightEdge, h * 0.18f, todayPaint)
+            if (leftFrac <= 0.06f && hPos == -1 && vPos != -1 &&
+                fmt == com.netspeed.indicator.data.TextFormat.CLASSIC
+            ) {
+                val brand = text(h * 0.10f, fg60, align = Paint.Align.LEFT)
+                val todayLeft = rightEdge - todayPaint.measureText(todayText)
+                if (pad + brand.measureText("NetSpeed") < todayLeft - w * 0.03f) {
+                    c.drawText("NetSpeed", pad, h * 0.18f, brand)
+                }
+            }
+        }
+
+        // Special whole-block formats first.
+        when (fmt) {
+            com.netspeed.indicator.data.TextFormat.COMPACT -> {
+                drawLine(
+                    "↓ ${SpeedFormatter.inline(d.downBps)}   ↑ ${SpeedFormatter.inline(d.upBps)}",
+                    0.18f, (h * 0.56f + vOff).coerceIn(h * 0.30f, h * 0.86f), fg, bold = true,
+                )
+                return
+            }
+            com.netspeed.indicator.data.TextFormat.PRO -> {
+                val th = d.tierThresholds.toFloatArray()
+                val mb = d.history.map { it / 1_048_576f }
+                val rows = listOf(
+                    "DL  ${SpeedFormatter.inline(d.downBps)}",
+                    "UL  ${SpeedFormatter.inline(d.upBps)}",
+                    "PK  ${SpeedFormatter.inline(d.peakBps)}",
+                    "P90 ${String.format("%.1f", com.netspeed.indicator.core.SpeedStats.p90(mb))} MB/s",
+                    "JIT ±${String.format("%.1f", com.netspeed.indicator.core.SpeedStats.jitter(mb))}",
+                )
+                var y = (h * 0.32f + vOff).coerceAtLeast(h * 0.24f)
+                rows.forEach { y += h * 0.135f; drawLine(it, 0.105f, y, fg60, mono = true) }
+                return
+            }
+            com.netspeed.indicator.data.TextFormat.TIER_WORD -> {
+                val word = SpeedTiers.tierOf(d.downBps / 1_048_576f, d.tierThresholds.toFloatArray()).defaultWord
+                drawLine(word, 0.30f, (h * 0.50f + vOff).coerceIn(h * 0.34f, h * 0.66f), fg, bold = true)
+                drawLine(
+                    "↓ ${SpeedFormatter.inline(d.downBps)} · ↑ ${SpeedFormatter.inline(d.upBps)}",
+                    0.11f, (h * 0.72f + vOff).coerceIn(h * 0.52f, h * 0.92f), fg60,
+                )
+                return
+            }
+            com.netspeed.indicator.data.TextFormat.DUAL -> {
+                drawLine("↓ ${SpeedFormatter.inline(d.downBps)}", 0.26f, (h * 0.46f + vOff).coerceIn(h * 0.3f, h * 0.6f), fg, bold = true)
+                drawLine("↑ ${SpeedFormatter.inline(d.upBps)}", 0.20f, (h * 0.78f + vOff).coerceIn(h * 0.56f, h * 0.92f), fg60, bold = true)
+                return
+            }
+            else -> Unit
+        }
+
+        // Number-led formats share the auto-fit number row.
+        val num = SpeedFormatter.parts(d.downBps)
+        val zen = fmt == com.netspeed.indicator.data.TextFormat.ZEN
+        var numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
+        var unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
+        val avail = rightEdge - pad
+        val unitW = if (zen) 0f else w * 0.02f + unitPaint.measureText(num.unit)
+        var rowW = numPaint.measureText(num.value) + unitW
+        if (rowW > avail) {
+            val s = avail / rowW
+            numPaint = text(h * 0.34f * s, fg, bold = true, align = Paint.Align.LEFT)
+            unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT)
+            rowW = avail
+        }
         val numY = (h * 0.56f + vOff).coerceIn(h * 0.34f, h * 0.72f)
         val ox = originX(rowW)
         c.drawText(num.value, ox, numY, numPaint)
         val numW = numPaint.measureText(num.value)
-        c.drawText(num.unit, ox + numW + w * 0.02f, numY, unitPaint)
-        val upPaint = text(h * 0.11f, fg60, align = Paint.Align.LEFT)
-        val upText = "▲ ${SpeedFormatter.inline(d.upBps)}" +
-            if (d.peakBps > 0) "  ·  pk ${SpeedFormatter.inline(d.peakBps)}" else ""
-        val upY = (h * 0.80f + vOff).coerceIn(h * 0.58f, h * 0.94f)
-        c.drawText(upText, originX(upPaint.measureText(upText)), upY, upPaint)
-        if (sparkline && hPos == -1 && vPos == 0) {
-            val textRight = pad + numW + w * 0.02f + unitPaint.measureText(num.unit)
-            drawSparkline(
-                c, d.history,
-                left = maxOf(w * 0.52f, textRight + w * 0.03f),
-                top = h * 0.30f, right = rightEdge, bottom = h * 0.78f,
-            )
+        if (!zen) c.drawText(num.unit, ox + numW + w * 0.02f, numY, unitPaint)
+
+        when (fmt) {
+            com.netspeed.indicator.data.TextFormat.MINIMAL,
+            com.netspeed.indicator.data.TextFormat.ZEN -> Unit
+            com.netspeed.indicator.data.TextFormat.NUMBER_UP -> {
+                drawLine("▲ ${SpeedFormatter.inline(d.upBps)}", 0.11f, (h * 0.80f + vOff).coerceIn(h * 0.58f, h * 0.94f), fg60)
+            }
+            com.netspeed.indicator.data.TextFormat.STATS -> {
+                val mb = d.history.map { it / 1_048_576f }
+                drawLine(
+                    "▲ ${SpeedFormatter.inline(d.upBps)} · pk ${SpeedFormatter.inline(d.peakBps)}",
+                    0.10f, (h * 0.74f + vOff).coerceIn(h * 0.56f, h * 0.88f), fg60,
+                )
+                drawLine(
+                    "p90 ${String.format("%.1f", com.netspeed.indicator.core.SpeedStats.p90(mb))} · ±${String.format("%.1f", com.netspeed.indicator.core.SpeedStats.jitter(mb))} MB/s",
+                    0.10f, (h * 0.88f + vOff).coerceIn(h * 0.66f, h * 0.96f), fg60,
+                )
+            }
+            com.netspeed.indicator.data.TextFormat.DATA -> {
+                drawLine(
+                    "${SpeedFormatter.total(d.todayBytes)} today" +
+                        if (d.dailyQuotaBytes > 0) " / ${SpeedFormatter.total(d.dailyQuotaBytes)}" else "",
+                    0.11f, (h * 0.80f + vOff).coerceIn(h * 0.58f, h * 0.94f), fg60,
+                )
+            }
+            else -> {   // CLASSIC
+                drawLine(
+                    "▲ ${SpeedFormatter.inline(d.upBps)}" +
+                        if (d.peakBps > 0) "  ·  pk ${SpeedFormatter.inline(d.peakBps)}" else "",
+                    0.11f, (h * 0.80f + vOff).coerceIn(h * 0.58f, h * 0.94f), fg60,
+                )
+                if (sparkline && hPos == -1 && vPos == 0) {
+                    val textRight = pad + numW + w * 0.02f + unitPaint.measureText(num.unit)
+                    drawSparkline(
+                        c, d.history,
+                        left = maxOf(w * 0.52f, textRight + w * 0.03f),
+                        top = h * 0.30f, right = rightEdge, bottom = h * 0.78f,
+                    )
+                }
+            }
         }
     }
 
