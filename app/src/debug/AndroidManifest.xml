@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only tooling. Never merged into the release build. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.netspeed.indicator.tools.FeatureGraphicActivity"
+            android:exported="true" />
+    </application>
+</manifest>

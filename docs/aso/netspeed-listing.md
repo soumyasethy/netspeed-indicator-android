@@ -160,7 +160,7 @@ possible privacy posture:
 | Screenshot 4 | `docs/screenshots/04-notification.png` | "Wi-Fi & mobile signal %" |
 | Screenshot 5 | `docs/screenshots/07-home-widget.png` | "5 home-screen widgets" |
 | Screenshot 6 | `docs/screenshots/05-icon-styles.png` | "Your icon, your colours" |
-| Feature graphic (1024×500) | TODO | "Internet Speed Meter · No ads · No INTERNET" |
+| Feature graphic (1024×500) | `docs/aso/feature-graphic.png` ✅ | Aurora gradient + status-bar mock + "No ads · No trackers · No INTERNET" |
 
 First 2 screenshots carry conversion — lead with the status-bar icon (the core promise) and the
 hero. Add a 1–2 word caption overlay on each (localized to Hindi for the India listing).
