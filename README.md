@@ -21,6 +21,40 @@ the device.**
 
 ---
 
+## 🎬 See it move
+
+Every animation below is **driven by your real network speed** — these are unedited
+screen recordings from a Galaxy S25 Ultra.
+
+<div align="center">
+
+**The Journey scene: snail → bicycle → car → plane → rocket, as your speed climbs.**<br>
+<sub>Transparent floating bubble + home-screen widget reading 14 MB/s — the red car era.</sub>
+
+<img src="docs/media/still-home.png" width="340"/>
+
+<br><br>
+
+**Pick a scene by eye — live animated previews sweep through every speed tier.**
+
+<img src="docs/media/showreel.gif" width="640"/>
+
+<br><br>
+
+| The bubble IS the animation | Widgets animate at 24 fps |
+|:---:|:---:|
+| <img src="docs/media/bubble-live.gif" width="380"/><br><sub>icon background "None" → only the scene floats on your wallpaper</sub> | <img src="docs/media/widget-live.gif" width="380"/><br><sub>launcher-side flip-book — smooth motion, zero extra battery</sub> |
+
+| Hero banner, mid-download | Status bar, true colours |
+|:---:|:---:|
+| <img src="docs/media/hero-live.gif" width="380"/><br><sub>bicycle through the field at 2 MB/s — environments blend, never snap</sub> | <img src="docs/media/still-bar.png" width="380"/><br><sub>your colours in the bar on One UI; max-contrast glyphs elsewhere</sub> |
+
+<sub>📹 Full clips: <a href="docs/media/showreel.mp4">scene showreel</a> · <a href="docs/media/live-demo.mp4">live download demo</a></sub>
+
+</div>
+
+---
+
 ## 📸 Screenshots
 
 <div align="center">
