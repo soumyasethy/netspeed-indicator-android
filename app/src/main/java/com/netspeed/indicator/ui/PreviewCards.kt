@@ -118,7 +118,10 @@ fun ThemeCanvas(
     val shown = remember { floatArrayOf(0f) }
     Canvas(Modifier.fillMaxSize()) {
         val t = clock()
-        val target = if (liveMbps > 0.2f) liveMbps else demoSweep(t)
+        // Showroom rule: follow reality only when it's INTERESTING (>2 MB/s
+        // — a real download worth showing). Background trickles used to pin
+        // every card to a near-idle crawl: 'all the animations stopped'.
+        val target = if (liveMbps > 2f) liveMbps else demoSweep(t)
         shown[0] += (target - shown[0]) * 0.12f
         val mbps = shown[0]
         if (scene != null) {
@@ -154,7 +157,10 @@ fun SkinCanvas(
     val shown = remember { floatArrayOf(0f) }
     Canvas(Modifier.fillMaxSize()) {
         val t = clock()
-        val target = if (liveMbps > 0.2f) liveMbps else demoSweep(t)
+        // Showroom rule: follow reality only when it's INTERESTING (>2 MB/s
+        // — a real download worth showing). Background trickles used to pin
+        // every card to a near-idle crawl: 'all the animations stopped'.
+        val target = if (liveMbps > 2f) liveMbps else demoSweep(t)
         shown[0] += (target - shown[0]) * 0.12f
         val mbps = shown[0]
         val tierSkin = skin == ColorSkin.TIER
@@ -179,7 +185,10 @@ fun SceneCanvas(
     val shown = remember { floatArrayOf(0f) }
     Canvas(Modifier.fillMaxSize()) {
         val t = clock()
-        val target = if (liveMbps > 0.2f) liveMbps else demoSweep(t)
+        // Showroom rule: follow reality only when it's INTERESTING (>2 MB/s
+        // — a real download worth showing). Background trickles used to pin
+        // every card to a near-idle crawl: 'all the animations stopped'.
+        val target = if (liveMbps > 2f) liveMbps else demoSweep(t)
         shown[0] += (target - shown[0]) * 0.12f
         val mbps = shown[0]
         state.dtS = (t - lastT[0]).coerceIn(0f, 0.3f)
