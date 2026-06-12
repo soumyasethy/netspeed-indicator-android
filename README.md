@@ -103,7 +103,7 @@ even the status-bar chip. Six of the combinations:
 ### 🔒 Privacy
 - Ships with **no `android.permission.INTERNET`** — a verifiable guarantee the app
   *cannot* phone home. Speed is read from kernel `TrafficStats` counters. No ads,
-  no trackers, no third-party SDKs.
+  no trackers, no analytics SDKs.
 
 ---
 
@@ -145,7 +145,8 @@ keyPassword=…
 ## 🧱 Tech
 
 Kotlin · Jetpack Compose + Material 3 · DataStore · foreground service (`specialUse`) ·
-Android Canvas · `min SDK 26 / target 35` · Gradle Kotlin DSL + version catalog · no
-third-party runtime dependencies.
+Android Canvas · Lottie (local animation rendering only) · `min SDK 26 / target 35` ·
+Gradle Kotlin DSL + version catalog · **no ads, no trackers, no network SDKs** — and
+still zero `INTERNET` permission.
 
 Architecture and design notes live in [`docs/context/`](docs/context/CONTEXT.md).

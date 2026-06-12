@@ -49,6 +49,20 @@ class MainActivity : ComponentActivity() {
             if (granted) enableIndicator()
         }
 
+    /** Lottie scene file picker ("endless possibilities" mode for the bubble). */
+    private val pickLottie =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                // Keep read access across reboots — the service re-reads the file.
+                runCatching {
+                    contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+                persist { repo.setBubbleLottieUri(uri.toString()) }
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -120,6 +134,13 @@ class MainActivity : ComponentActivity() {
                     onBubbleFont = { v -> persist { repo.setBubbleFont(v) } },
                     onBubbleTracking = { v -> persist { repo.setBubbleTracking(v) } },
                     onBubbleFx = { v -> persist { repo.setBubbleFx(v) } },
+                    onPickLottieFile = {
+                        pickLottie.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+                    },
+                    onClearLottieFile = { persist { repo.setBubbleLottieUri("") } },
+                    onBubbleLockSize = { v -> persist { repo.setBubbleLockSize(v) } },
+                    onBubbleBoxW = { v -> persist { repo.setBubbleBoxW(v) } },
+                    onBubbleBoxH = { v -> persist { repo.setBubbleBoxH(v) } },
                     onStyleSelect = { style -> persist { repo.setIconStyle(style) } },
                     onPanelToggle = { value -> persist { repo.setShowInPanel(value) } },
                     onThemeSelect = { theme -> persist { repo.setHeroTheme(theme) } },

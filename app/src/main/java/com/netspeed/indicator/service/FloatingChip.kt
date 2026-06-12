@@ -35,6 +35,11 @@ class FloatingChip(
     /** Display height of the chip in dp at scale 1.0 (the bubble-size slider scales this). */
     private var scale: Float = 1f
 
+    /** Locked badge box in px (null = free-size mode following [scale]). When
+     *  set, the chip is fit-scaled INTO the box (content auto-fills the space)
+     *  and letterboxed centred, so the badge footprint never changes. */
+    var lockedBox: Pair<Int, Int>? = null
+
     /**
      * Free placement: the chip may dock over the status bar and push half-out of
      * any screen edge — a ≥[MIN_VISIBLE_DP] sliver always stays touchable. Off =
@@ -165,13 +170,36 @@ class FloatingChip(
      * bitmap already carries the chosen style / colours / outline, so the bubble is
      * just a scaled image of it — no separate colour plumbing needed.
      */
-    fun update(bitmap: Bitmap, fxKey: String = "none", intensity: Float = 0f, accentArgb: Int = 0xFF7C3AED.toInt()) {
+    fun update(
+        bitmap: Bitmap,
+        fxKey: String = "none",
+        intensity: Float = 0f,
+        accentArgb: Int = 0xFF7C3AED.toInt(),
+        lottie: com.airbnb.lottie.LottieComposition? = null,
+    ) {
         val iv = view ?: return
         val density = context.resources.displayMetrics.density
-        val targetH = BASE_HEIGHT_DP * scale * density
-        val s = targetH / bitmap.height.coerceAtLeast(1)
-        val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
-        val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
+        val box = lockedBox
+        val scaled = if (box != null) {
+            // Locked badge: max uniform scale that fits the box, letterboxed
+            // centred — text auto-fills the available space, footprint constant.
+            val (bw, bh) = box
+            val fit = minOf(bw.toFloat() / bitmap.width, bh.toFloat() / bitmap.height)
+            val cw = (bitmap.width * fit).roundToInt().coerceAtLeast(1)
+            val ch = (bitmap.height * fit).roundToInt().coerceAtLeast(1)
+            val content = Bitmap.createScaledBitmap(bitmap, cw, ch, true)
+            Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888).also { boxBmp ->
+                android.graphics.Canvas(boxBmp).drawBitmap(
+                    content, (bw - cw) / 2f, (bh - ch) / 2f, null,
+                )
+            }
+        } else {
+            val targetH = BASE_HEIGHT_DP * scale * density
+            val s = targetH / bitmap.height.coerceAtLeast(1)
+            val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
+        }
+        iv.setLottie(lottie)
         iv.setEffect(fxKey, accentArgb)
         iv.intensity = intensity
         iv.setChip(scaled)

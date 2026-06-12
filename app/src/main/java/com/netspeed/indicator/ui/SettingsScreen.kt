@@ -113,6 +113,11 @@ fun SettingsScreen(
     onBubbleFont: (String) -> Unit,
     onBubbleTracking: (Float) -> Unit,
     onBubbleFx: (String) -> Unit,
+    onPickLottieFile: () -> Unit,
+    onClearLottieFile: () -> Unit,
+    onBubbleLockSize: (Boolean) -> Unit,
+    onBubbleBoxW: (Int) -> Unit,
+    onBubbleBoxH: (Int) -> Unit,
     dailyHistory: List<com.netspeed.indicator.data.DayUsage>,
     onStyleSelect: (IconStyle) -> Unit,
     onPanelToggle: (Boolean) -> Unit,
@@ -379,6 +384,35 @@ fun SettingsScreen(
                     )
                 }
                 ToggleRow(
+                    title = "Lock bubble size",
+                    subtitle = "Fixed badge box — text auto-scales to fill it. The size slider is ignored while locked.",
+                    checked = settings.bubbleLockSize,
+                    onCheckedChange = { tap(); onBubbleLockSize(it) },
+                    tierColor = tierColor,
+                )
+                if (settings.bubbleLockSize) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Badge width", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                            Text("${settings.bubbleBoxW} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                        }
+                        Slider(
+                            value = settings.bubbleBoxW.toFloat(),
+                            onValueChange = { onBubbleBoxW((it / 4f).toInt() * 4) },
+                            valueRange = 60f..280f,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Badge height", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                            Text("${settings.bubbleBoxH} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                        }
+                        Slider(
+                            value = settings.bubbleBoxH.toFloat(),
+                            onValueChange = { onBubbleBoxH((it / 2f).toInt() * 2) },
+                            valueRange = 28f..120f,
+                        )
+                    }
+                }
+                ToggleRow(
                     title = "Bold bubble text",
                     subtitle = "Off = lighter, leaner glyphs for a smaller badge.",
                     checked = settings.bubbleBold,
@@ -393,10 +427,25 @@ fun SettingsScreen(
                 )
                 ChipPickRow(
                     label = "Bubble animation — reacts to your live speed",
-                    options = listOf("none" to "None", "flame" to "🔥 Flame", "glow" to "✨ Glow", "sparks" to "⚡ Sparks"),
+                    options = listOf("none" to "None", "flame" to "🔥 Flame", "glow" to "✨ Glow", "sparks" to "⚡ Sparks", "lottie" to "✈️ Scene"),
                     selected = settings.bubbleFx,
                     onPick = { tap(); onBubbleFx(it) },
                 )
+                if (settings.bubbleFx == "lottie") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { tap(); onPickLottieFile() }, modifier = Modifier.weight(1f)) {
+                            Text(if (settings.bubbleLottieUri.isEmpty()) "Animation file… (Lottie .json)" else "Change animation file…", fontSize = 12.sp)
+                        }
+                        if (settings.bubbleLottieUri.isNotEmpty()) {
+                            TextButton(onClick = { tap(); onClearLottieFile() }) { Text("Built-in ✈️", fontSize = 12.sp) }
+                        }
+                    }
+                    Text(
+                        "Any Lottie animation plays inside the bubble, speed-mapped: it ambles when idle and races while you download. Thousands of free .json scenes online.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    )
+                }
             }
 
             Hairline()

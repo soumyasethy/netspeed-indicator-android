@@ -88,6 +88,29 @@ class SpeedMeterService : LifecycleService() {
     /** Last STORED bubble position seen — reconcile fires only when it changes. */
     private var lastStoredChipPos: Pair<Int, Int>? = null
 
+    // Lottie scene cache: parsed once per (uri) and reused every tick. A failed
+    // parse records the uri so we don't retry per second; the FX falls back.
+    private var lottieLoadedFor: String? = null
+    private var lottieComposition: com.airbnb.lottie.LottieComposition? = null
+
+    /** Resolves the scene composition ("" = bundled plane). Null = parse failed. */
+    private fun lottieFor(uriStr: String): com.airbnb.lottie.LottieComposition? {
+        if (lottieLoadedFor == uriStr) return lottieComposition
+        lottieLoadedFor = uriStr
+        lottieComposition = runCatching {
+            if (uriStr.isEmpty()) {
+                com.airbnb.lottie.LottieCompositionFactory
+                    .fromAssetSync(this, "lottie/plane.json").value
+            } else {
+                contentResolver.openInputStream(android.net.Uri.parse(uriStr))?.use {
+                    com.airbnb.lottie.LottieCompositionFactory
+                        .fromJsonInputStreamSync(it, uriStr).value
+                }
+            }
+        }.getOrNull()
+        return lottieComposition
+    }
+
     private fun transparentIcon(): Bitmap =
         transparentIconBitmap ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
             .also { transparentIconBitmap = it }
@@ -402,6 +425,10 @@ class SpeedMeterService : LifecycleService() {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
         floatingChip.applyScale(settings.floatingChipScale)   // bubble-size slider, live
+        floatingChip.lockedBox = if (settings.bubbleLockSize) {
+            val d = resources.displayMetrics.density
+            (settings.bubbleBoxW * d).toInt() to (settings.bubbleBoxH * d).toInt()
+        } else null
 
         val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
         bubbleRenderer.fontScale = resources.configuration.fontScale
@@ -416,6 +443,14 @@ class SpeedMeterService : LifecycleService() {
         bubbleRenderer.glyphTypeface = bubbleTypeface(settings.bubbleFont, settings.bubbleBold)
         bubbleRenderer.borderColorArgb = settings.iconBorderColor
         bubbleRenderer.borderWidth = settings.iconBorderWidth
+        // Lottie scene: resolve the composition (cached); a failed parse falls
+        // back to the flame so the toggle is never silently dead.
+        var fxKey = settings.bubbleFx
+        var lottie: com.airbnb.lottie.LottieComposition? = null
+        if (fxKey == "lottie") {
+            lottie = lottieFor(settings.bubbleLottieUri)
+            if (lottie == null) fxKey = "flame"
+        }
         floatingChip.update(
             bitmap = bubbleRenderer.renderChip(
                 style = settings.iconStyle,
@@ -423,12 +458,13 @@ class SpeedMeterService : LifecycleService() {
                 upBps = upShown,
                 showCombined = settings.showCombined,
             ),
-            fxKey = settings.bubbleFx,
+            fxKey = fxKey,
             // Normalised "how hard is the network working" for the FX engine —
             // log-ish ramp so KB/s traffic already animates gently.
             intensity = ((downShown + upShown) / (8f * 1024 * 1024)).coerceIn(0f, 1f)
                 .let { kotlin.math.sqrt(it) },
             accentArgb = accent,
+            lottie = lottie,
         )
     }
 

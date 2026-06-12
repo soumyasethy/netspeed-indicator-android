@@ -12,6 +12,8 @@ import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.view.Choreographer
 import android.view.View
+import com.airbnb.lottie.LottieComposition
+import com.airbnb.lottie.LottieDrawable
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -34,11 +36,16 @@ import kotlin.math.sin
 @SuppressLint("ViewConstructor")
 class BubbleFxView(context: Context) : View(context) {
 
-    enum class Fx { NONE, FLAME, GLOW, SPARKS }
+    enum class Fx { NONE, FLAME, GLOW, SPARKS, LOTTIE }
 
     private var chip: Bitmap? = null
     private var fx: Fx = Fx.NONE
     private var accent: Int = 0xFF7C3AED.toInt()
+
+    /** Lottie scene (the "endless possibilities" mode): plays BEHIND the chip,
+     *  playback speed mapped to [intensity] — a trickle ambles, a download flies. */
+    private var lottie: LottieDrawable? = null
+    private var lastFrameMs = 0L
 
     /** 0..1 — how hard the network is working; drives every effect. */
     var intensity: Float = 0f
@@ -66,8 +73,12 @@ class BubbleFxView(context: Context) : View(context) {
             if (!running) return
             skip = !skip
             if (!skip) {                       // ~30 fps on a 60 Hz panel
-                timeMs = frameTimeNanos / 1_000_000
+                val now = frameTimeNanos / 1_000_000
+                val dt = if (lastFrameMs == 0L) 33L else (now - timeMs).coerceIn(1, 200)
+                timeMs = now
+                lastFrameMs = now
                 stepSparks()
+                stepLottie(dt)
                 invalidate()
             }
             Choreographer.getInstance().postFrameCallback(this)
@@ -85,11 +96,35 @@ class BubbleFxView(context: Context) : View(context) {
             "flame" -> Fx.FLAME
             "glow" -> Fx.GLOW
             "sparks" -> Fx.SPARKS
+            "lottie" -> Fx.LOTTIE
             else -> Fx.NONE
         }
         accent = accentArgb
         syncLoop()
         invalidate()
+    }
+
+    /** Installs (or clears) the Lottie scene. The drawable is retained across
+     *  frames; only the composition swap allocates. */
+    fun setLottie(composition: LottieComposition?) {
+        if (composition == null) { lottie = null; return }
+        if (lottie?.composition === composition) return
+        lottie = LottieDrawable().apply {
+            this.composition = composition
+            repeatCount = LottieDrawable.INFINITE
+        }
+    }
+
+    /** Scene playback: slow ambient at a trickle, full tilt while downloading. */
+    private fun stepLottie(dtMs: Long) {
+        val d = lottie ?: return
+        if (fx != Fx.LOTTIE) return
+        val duration = d.composition?.duration ?: return
+        if (duration <= 0f) return
+        val speed = 0.25f + 1.75f * intensity
+        var p = d.progress + (dtMs / duration) * speed
+        if (p > 1f) p -= 1f
+        d.progress = p
     }
 
     /** Margin around the chip reserved for the effect (and easier grabbing). */
@@ -135,6 +170,10 @@ class BubbleFxView(context: Context) : View(context) {
             Fx.FLAME -> drawFlames(canvas, pad, c)
             Fx.GLOW -> drawGlow(canvas, pad, c)
             Fx.SPARKS -> drawSparks(canvas, pad, c)
+            Fx.LOTTIE -> lottie?.let { d ->
+                d.setBounds(0, 0, width, height)
+                d.draw(canvas)
+            }
             Fx.NONE -> Unit
         }
         canvas.drawBitmap(c, pad, pad, bmpPaint)

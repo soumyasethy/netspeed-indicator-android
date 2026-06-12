@@ -91,7 +91,7 @@ NetSpeed Indicator is a tiny, battery-friendly internet speed meter that turns y
 🔒 TRUE PRIVACY — NO INTERNET PERMISSION
 • This app ships with NO android.permission.INTERNET
 • It physically CANNOT send your data anywhere — a guarantee you can verify
-• No ads, no trackers, no third-party SDKs, no account, no sign-up
+• No ads, no trackers, no analytics SDKs, no account, no sign-up
 • Speed is read from your phone's own traffic counters, on-device only
 
 Why people use NetSpeed Indicator:

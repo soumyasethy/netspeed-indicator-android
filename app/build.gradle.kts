@@ -98,6 +98,7 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.billing.ktx)
+    implementation(libs.lottie)
 
     testImplementation(libs.junit)
 }

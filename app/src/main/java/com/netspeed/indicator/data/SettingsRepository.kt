@@ -70,8 +70,15 @@ data class Settings(
     val bubbleFont: String = "sans",
     /** Bubble letter-spacing in em (0–0.12) — relaxes clumpy horizontal text. */
     val bubbleTracking: Float = 0f,
-    /** Bubble speed-reactive animation: none / flame / glow / sparks. */
+    /** Bubble speed-reactive animation: none / flame / glow / sparks / lottie. */
     val bubbleFx: String = "none",
+    /** Custom Lottie scene file (SAF uri); "" = the bundled paper-plane. */
+    val bubbleLottieUri: String = "",
+    /** Fixed-size badge mode: lock the bubble box; content auto-fits inside. */
+    val bubbleLockSize: Boolean = false,
+    /** Locked box dimensions in dp. */
+    val bubbleBoxW: Int = 140,
+    val bubbleBoxH: Int = 48,
     /** Persisted bubble position (window coordinates). */
     val floatingChipX: Int = DEFAULT_CHIP_X,
     val floatingChipY: Int = DEFAULT_CHIP_Y,
@@ -133,6 +140,10 @@ class SettingsRepository(private val context: Context) {
             bubbleFont = p[KEY_BUBBLE_FONT] ?: "sans",
             bubbleTracking = (p[KEY_BUBBLE_TRACKING] ?: 0f).coerceIn(0f, 0.12f),
             bubbleFx = p[KEY_BUBBLE_FX] ?: "none",
+            bubbleLottieUri = p[KEY_BUBBLE_LOTTIE] ?: "",
+            bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: false,
+            bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 140).coerceIn(60, 280),
+            bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 48).coerceIn(28, 120),
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
@@ -184,6 +195,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBubbleFont(v: String) = edit { it[KEY_BUBBLE_FONT] = v }
     suspend fun setBubbleTracking(v: Float) = edit { it[KEY_BUBBLE_TRACKING] = v.coerceIn(0f, 0.12f) }
     suspend fun setBubbleFx(v: String) = edit { it[KEY_BUBBLE_FX] = v }
+    suspend fun setBubbleLottieUri(v: String) = edit { it[KEY_BUBBLE_LOTTIE] = v }
+    suspend fun setBubbleLockSize(v: Boolean) = edit { it[KEY_BUBBLE_LOCK] = v }
+    suspend fun setBubbleBoxW(v: Int) = edit { it[KEY_BUBBLE_BOX_W] = v.coerceIn(60, 280) }
+    suspend fun setBubbleBoxH(v: Int) = edit { it[KEY_BUBBLE_BOX_H] = v.coerceIn(28, 120) }
     suspend fun setFloatingChipPadScale(v: Float) = edit { it[KEY_FLOAT_PAD] = v.coerceIn(1f, 2.5f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
     suspend fun setBubbleFreePlacement(value: Boolean) = edit { it[KEY_FLOAT_FREE] = value }
@@ -249,6 +264,10 @@ class SettingsRepository(private val context: Context) {
         val KEY_BUBBLE_FONT = stringPreferencesKey("bubble_font")
         val KEY_BUBBLE_TRACKING = floatPreferencesKey("bubble_tracking")
         val KEY_BUBBLE_FX = stringPreferencesKey("bubble_fx")
+        val KEY_BUBBLE_LOTTIE = stringPreferencesKey("bubble_lottie_uri")
+        val KEY_BUBBLE_LOCK = booleanPreferencesKey("bubble_lock_size")
+        val KEY_BUBBLE_BOX_W = intPreferencesKey("bubble_box_w")
+        val KEY_BUBBLE_BOX_H = intPreferencesKey("bubble_box_h")
         val KEY_FLOAT_SCALE = floatPreferencesKey("floating_chip_scale")
         val KEY_FLOAT_X = intPreferencesKey("floating_chip_x")
         val KEY_FLOAT_Y = intPreferencesKey("floating_chip_y")
