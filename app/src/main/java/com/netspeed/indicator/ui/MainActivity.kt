@@ -88,6 +88,12 @@ class MainActivity : ComponentActivity() {
                     onAutoHideToggle = { value -> persist { repo.setAutoHideIdle(value) } },
                     onFloatingChipToggle = { value ->
                         persist { repo.setFloatingChip(value) }
+                        if (value) {
+                            // The bubble is served by the meter service — start it
+                            // even when the status-bar toggle is off (icon stays
+                            // transparent; only the bubble shows).
+                            SpeedMeterService.start(this)
+                        }
                         // The bubble needs the system overlay permission once.
                         if (value && !android.provider.Settings.canDrawOverlays(this)) {
                             startActivity(
@@ -181,8 +187,17 @@ class MainActivity : ComponentActivity() {
 
     private fun disableIndicator() {
         persist { repo.setEnabled(false) }
-        SpeedMeterService.stop(this)
-        SpeedBus.markStopped()
+        // The service powers EVERY surface, not just the bar icon — keep it alive
+        // when the floating bubble still needs it (the icon goes transparent; the
+        // service stops itself when both surfaces are off).
+        lifecycleScope.launch {
+            val bubbleLive = repo.settings.first().floatingChip &&
+                android.provider.Settings.canDrawOverlays(this@MainActivity)
+            if (!bubbleLive) {
+                SpeedMeterService.stop(this@MainActivity)
+                SpeedBus.markStopped()
+            }
+        }
     }
 
     // --- permissions -----------------------------------------------------------

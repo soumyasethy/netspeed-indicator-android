@@ -183,6 +183,14 @@ class SpeedMeterService : LifecycleService() {
                 // Bubble toggled off → remove the overlay NOW, not on the next tick
                 // (with the screen off / service paused the chip would linger).
                 if (!s.floatingChip && floatingChip.isShown) runCatching { floatingChip.hide() }
+                // No surface left (bar icon off AND no drawable bubble) → shut down.
+                val bubbleLive = s.floatingChip &&
+                    android.provider.Settings.canDrawOverlays(this@SpeedMeterService)
+                if (!s.enabled && !bubbleLive) {
+                    SpeedBus.markStopped()
+                    stopSelf()
+                    return@collect
+                }
                 // Recompute pause state when the screen-off preference flips.
                 applyPauseState()
             }
@@ -287,7 +295,10 @@ class SpeedMeterService : LifecycleService() {
         // twice. Same transparent-icon trick as idle-hide.
         val bubbleShowing = settings.floatingChip && suiteUnlocked &&
             android.provider.Settings.canDrawOverlays(this)
-        val hideIcon = (settings.autoHideIdle && idleTicks >= ServiceConstants.IDLE_HIDE_TICKS) ||
+        // Icon also hides when the status-bar toggle is OFF while the service runs
+        // for the bubble alone (the FGS notification must exist; alpha-0 icon).
+        val hideIcon = !settings.enabled ||
+            (settings.autoHideIdle && idleTicks >= ServiceConstants.IDLE_HIDE_TICKS) ||
             (bubbleShowing && settings.hideIconWhenBubble)
 
         iconRenderer.fontScale = resources.configuration.fontScale   // honor system font size

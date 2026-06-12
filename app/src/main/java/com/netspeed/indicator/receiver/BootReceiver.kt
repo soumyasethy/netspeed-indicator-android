@@ -33,8 +33,14 @@ class BootReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val enabled = SettingsRepository(appContext).settings.first().enabled
-                if (enabled) {
+                val s = SettingsRepository(appContext).settings.first()
+                // The service powers both the bar icon and the floating bubble —
+                // re-arm when either surface was on. The bubble counts only with
+                // the overlay permission granted (it defaults ON for everyone;
+                // without the grant it can't draw, so don't start for nothing).
+                val bubbleLive = s.floatingChip &&
+                    android.provider.Settings.canDrawOverlays(appContext)
+                if (s.enabled || bubbleLive) {
                     // startForegroundService is legal from a BOOT_COMPLETED receiver;
                     // the service calls startForeground() inside its start window.
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
