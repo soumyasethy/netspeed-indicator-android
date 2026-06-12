@@ -65,6 +65,12 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     var colorTrue: Boolean = false
 
+    /** True only while rendering for the SQUARE status-bar chip ([render] /
+     *  [renderSingle] with decoration): wide content is then adapted to fit the
+     *  square. The bubble ([renderChip]) is content-sized — never adapted, the
+     *  chosen unit style renders exactly as picked. */
+    private var chipAdapt: Boolean = false
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
@@ -119,6 +125,7 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun render(style: IconStyle, downBps: Long, upBps: Long, showCombined: Boolean): Bitmap {
         applyColors()
+        chipAdapt = isDecorated
         val s = if (isDecorated) chipStyle(style) else style
         return frame(
             content = contentFor(s, downBps, upBps, showCombined),
@@ -245,6 +252,7 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun renderChip(style: IconStyle, downBps: Long, upBps: Long, showCombined: Boolean): Bitmap {
         applyColors()
+        chipAdapt = false           // bubble is content-sized: unit renders as picked
         val content = contentFor(style, downBps, upBps, showCombined)
         val padX = sizePx * 0.18f
         val padY = sizePx * 0.16f
@@ -369,12 +377,14 @@ class IconRenderer(private val sizePx: Int = 96) {
 
     /** Compact: one big token — unit short / full / below per [unitStyle]. */
     private fun compact(bps: Long): Bitmap {
-        if (unitStyle == UnitStyle.BELOW) {
+        // Same chip adaptation as singleContent: a FULL row is too wide for the
+        // square chip — show value-over-unit there so the unit stays visible.
+        val effectiveUnit =
+            if (chipAdapt && unitStyle == UnitStyle.FULL) UnitStyle.BELOW else unitStyle
+        if (effectiveUnit == UnitStyle.BELOW) {
             val p = SpeedFormatter.parts(bps)
             return stackedBitmap(p.value, p.unit, unitArrowDown = null)
         }
-        // Same chip adaptation as singleContent: FULL is too wide for the square.
-        val effectiveUnit = if (isDecorated && unitStyle == UnitStyle.FULL) UnitStyle.SHORT else unitStyle
         val (digits, suffix) = when (effectiveUnit) {
             UnitStyle.FULL -> {
                 val p = SpeedFormatter.parts(bps)
@@ -509,6 +519,7 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun renderSingle(bps: Long, down: Boolean): Bitmap {
         applyColors()
+        chipAdapt = isDecorated
         return frame(
             content = singleContent(bps, down),
             refContent = { singleContent(REF_BPS, down) },
@@ -516,15 +527,17 @@ class IconRenderer(private val sizePx: Int = 96) {
     }
 
     private fun singleContent(bps: Long, down: Boolean): Bitmap {
+        // Inside the SQUARE status-bar chip a FULL row ("84 KB/s") would fit by
+        // width into tiny digits — render it as value-over-unit instead, so the
+        // chosen unit stays VISIBLE (it used to be silently shortened). The
+        // bubble never adapts ([chipAdapt] false): FULL renders as one wide row.
+        val effectiveUnit =
+            if (chipAdapt && unitStyle == UnitStyle.FULL) UnitStyle.BELOW else unitStyle
         // BELOW: number on top, arrow+unit underneath — reuse the stacked layout.
-        if (unitStyle == UnitStyle.BELOW) {
+        if (effectiveUnit == UnitStyle.BELOW) {
             val p = SpeedFormatter.parts(bps)
             return stackedBitmap(p.value, p.unit, unitArrowDown = down)
         }
-        // Inside a decorated chip the FULL row ("84 KB/s") is too wide for the
-        // square — digits would shrink past legibility and the chip (the user's
-        // colours) would silently drop. Use the short token there instead.
-        val effectiveUnit = if (isDecorated && unitStyle == UnitStyle.FULL) UnitStyle.SHORT else unitStyle
         // SHORT: "84k" (suffix from the compact token); FULL: "84 KB/s".
         val (digits, suffix) = when (effectiveUnit) {
             UnitStyle.FULL -> {
