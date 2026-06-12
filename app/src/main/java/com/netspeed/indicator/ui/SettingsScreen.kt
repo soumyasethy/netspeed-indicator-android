@@ -1848,45 +1848,24 @@ private fun InlineThemesRow(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+        // 2x3 grid — all six cards visible at once, no horizontal hunting.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 20.dp),
         ) {
-            items(shelf.size) { i ->
-                val theme = shelf[i]
-                val locked = !com.netspeed.indicator.billing.FeatureGate.themeAllowed(theme.ordinal, ent)
-                val entry = com.netspeed.indicator.render.scenes.SceneRegistry.fromThemeKey(theme.storageKey)
-                Box(Modifier.width(116.dp)) {
-                    com.netspeed.indicator.ui.StudioCardFrame(
-                        selected = settings.heroTheme == theme,
-                        locked = locked,
-                        label = "${entry?.emoji ?: ""} ${theme.label}",
-                        previewHeight = 64.dp,
-                        onClick = { if (locked) onLockedTap() else onThemeSelect(theme) },
-                    ) { com.netspeed.indicator.ui.ThemeCanvas(theme, settings.colorSkin, clockFn, liveMbps) }
-                }
-            }
-            item {
-                Box(Modifier.width(116.dp)) {
-                    com.netspeed.indicator.ui.StudioCardFrame(
-                        selected = false,
-                        locked = false,
-                        label = "Style Studio",
-                        previewHeight = 64.dp,
-                        onClick = onOpenStudio,
-                    ) {
-                        Box(
-                            Modifier.fillMaxSize().background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f),
-                                    ),
-                                ),
-                            ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("+${total - 6}\nView all", fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.SemiBold)
+            shelf.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { theme ->
+                        val locked = !com.netspeed.indicator.billing.FeatureGate.themeAllowed(theme.ordinal, ent)
+                        val entry = com.netspeed.indicator.render.scenes.SceneRegistry.fromThemeKey(theme.storageKey)
+                        Box(Modifier.weight(1f)) {
+                            com.netspeed.indicator.ui.StudioCardFrame(
+                                selected = settings.heroTheme == theme,
+                                locked = locked,
+                                label = "${entry?.emoji ?: ""} ${theme.label}",
+                                previewHeight = 78.dp,
+                                onClick = { if (locked) onLockedTap() else onThemeSelect(theme) },
+                            ) { com.netspeed.indicator.ui.ThemeCanvas(theme, settings.colorSkin, clockFn, liveMbps) }
                         }
                     }
                 }

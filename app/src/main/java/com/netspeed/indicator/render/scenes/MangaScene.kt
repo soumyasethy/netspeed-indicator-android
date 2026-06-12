@@ -50,21 +50,26 @@ class MangaScene : SpeedScene {
         }
 
         paint.style = Paint.Style.STROKE
-        if (s.tier == 0) {
-            // Lazy ink sweep: seven long faint strokes slowly orbiting the dot
-            // — unmistakable idle motion (the droop alone read as frozen).
+        // Lazy ink sweep: seven long faint strokes slowly orbiting the dot.
+        // Drawn at EVERY low speed (fading out by ~0.5 sc): the random burst
+        // alone is statistically identical frame-to-frame at low line counts,
+        // so without a coherent rotation underneath it reads as static.
+        val sweepFade = (1f - sc * 2f).coerceIn(0f, 1f)
+        if (sweepFade > 0.02f) {
             val base = s.timeS * 0.35f
             for (i in 0 until 7) {
                 val a = base + i * (TWO_PI / 7f)
                 val l0 = (16f + 3f * sin(s.timeS * 0.7f + i)) * k
                 val l1 = (30f + 8f * sin(s.timeS * 0.5f + i * 2f)) * k
-                paint.color = argbWithAlpha(ink, 0.10f + 0.05f * sin(s.timeS + i))
+                paint.color = argbWithAlpha(ink, (0.10f + 0.05f * sin(s.timeS + i)) * sweepFade)
                 paint.strokeWidth = 1f * k
                 canvas.drawLine(
                     cx + cos(a) * l0, cy + sin(a) * l0 * 0.5f,
                     cx + cos(a) * (l0 + l1), cy + sin(a) * (l0 + l1) * 0.5f, paint,
                 )
             }
+        }
+        if (s.tier == 0) {
             // Crawling: 3–4 droopy down-right strokes (the manga idiom for
             // pathetic) — sagging on a slow sine with breathing ink.
             rng.reset(CRAWL_SEED)
