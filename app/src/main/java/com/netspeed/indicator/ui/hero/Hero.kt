@@ -42,7 +42,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +59,8 @@ import com.netspeed.indicator.core.TierTracker
 import com.netspeed.indicator.data.ColorSkin
 import com.netspeed.indicator.data.HeroTheme
 import com.netspeed.indicator.data.LiveSpeed
+import com.netspeed.indicator.render.scenes.SceneRegistry
+import com.netspeed.indicator.render.scenes.SceneState
 import com.netspeed.indicator.service.SpeedFormatter
 import kotlin.math.cos
 import kotlin.math.sin
@@ -162,12 +166,40 @@ fun TierFlowHero(
         while (history.size > 40) history.removeFirst()
     }
 
+    // Speed-scene themes render the SAME procedural renderer the bubble and
+    // widgets use — one implementation, three surfaces. The clock holder is a
+    // plain array so the draw phase never writes snapshot state.
+    val scene = remember(theme) {
+        SceneRegistry.fromThemeKey(theme.storageKey)?.factory?.invoke()
+    }
+    val sceneState = remember { SceneState() }
+    val sceneClockLast = remember { floatArrayOf(0f) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .drawBehind {
-                // Theme ALWAYS drives the hero; skin only supplies the colours.
-                drawHeroBackground(theme, clock, smoothedMBps, gradColors, accent, dark)
+                if (scene != null) {
+                    sceneState.dtS = (clock - sceneClockLast[0]).coerceIn(0f, 0.3f)
+                    sceneClockLast[0] = clock
+                    sceneState.timeS = clock
+                    sceneState.mbps = smoothedMBps
+                    sceneState.sc = SpeedTiers.norm(smoothedMBps)
+                    sceneState.tier = tier.index
+                    sceneState.tierFrac = SpeedTiers.tierFrac(smoothedMBps, thresholds)
+                    sceneState.tierProgress = SpeedTiers.tierProgress(smoothedMBps)
+                    sceneState.accentArgb = SpeedTiers.blendAccentArgb(smoothedMBps)
+                    sceneState.dark = dark
+                    drawIntoCanvas {
+                        scene.render(it.nativeCanvas, size.width, size.height, sceneState)
+                    }
+                    // Center-weighted scrim: the hero text never fights the
+                    // scene; the edges keep the diorama bright.
+                    drawSceneScrim()
+                } else {
+                    // Theme ALWAYS drives the hero; skin only supplies the colours.
+                    drawHeroBackground(theme, clock, smoothedMBps, gradColors, accent, dark)
+                }
             },
         contentAlignment = Alignment.Center,
     ) {

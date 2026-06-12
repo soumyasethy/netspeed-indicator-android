@@ -179,6 +179,8 @@ class FloatingChip(
         intensity: Float = 0f,
         accentArgb: Int = 0xFF7C3AED.toInt(),
         lottie: com.airbnb.lottie.LottieComposition? = null,
+        sceneMbps: Float = 0f,
+        tierThresholds: FloatArray = com.netspeed.indicator.core.SpeedTiers.DEFAULT_THRESHOLDS,
     ) {
         val iv = view ?: return
         val density = context.resources.displayMetrics.density
@@ -191,9 +193,16 @@ class FloatingChip(
             val cw = (bitmap.width * fit).roundToInt().coerceAtLeast(1)
             val ch = (bitmap.height * fit).roundToInt().coerceAtLeast(1)
             val content = Bitmap.createScaledBitmap(bitmap, cw, ch, true)
+            // A scene playing as the badge background gets the readout docked
+            // RIGHT (the Journey-demo layout: world left, numbers right);
+            // otherwise the text centers in the box.
+            val sceneBehind = fxPlacement == "behind" &&
+                com.netspeed.indicator.render.scenes.SceneRegistry.isScene(fxKey)
+            val left = if (sceneBehind) (bw - cw - 10f * density).coerceAtLeast(0f)
+            else (bw - cw) / 2f
             Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888).also { boxBmp ->
                 android.graphics.Canvas(boxBmp).drawBitmap(
-                    content, (bw - cw) / 2f, (bh - ch) / 2f, null,
+                    content, left, (bh - ch) / 2f, null,
                 )
             }
         } else {
@@ -204,6 +213,7 @@ class FloatingChip(
         }
         iv.placement = fxPlacement
         iv.setLottie(lottie)
+        iv.setSceneSpeed(sceneMbps, tierThresholds)
         iv.setEffect(fxKey, accentArgb)
         iv.intensity = intensity
         iv.setChip(scaled)
@@ -225,7 +235,7 @@ class FloatingChip(
         params = null
     }
 
-    private companion object {
+    companion object {
         /** Chip height in dp at 100% — the bubble-size slider (0.8–1.6) scales it. */
         const val BASE_HEIGHT_DP = 30f
 

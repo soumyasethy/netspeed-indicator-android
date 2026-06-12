@@ -3,6 +3,7 @@ package com.netspeed.indicator.render
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -10,6 +11,9 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import com.netspeed.indicator.core.SpeedTiers
+import com.netspeed.indicator.render.scenes.SceneRegistry
+import com.netspeed.indicator.render.scenes.SceneState
+import com.netspeed.indicator.render.scenes.SpeedScene
 import com.netspeed.indicator.service.SpeedFormatter
 import kotlin.math.cos
 import kotlin.math.min
@@ -42,6 +46,8 @@ data class WidgetData(
     val themeKey: String = "",
     /** Skin hero foreground (0 = white). */
     val heroFgArgb: Int = 0,
+    /** User tier thresholds (MB/s) — speed scenes need exact tier bounds. */
+    val tierThresholds: List<Float> = listOf(1f, 5f, 15f, 30f),
 )
 
 enum class WidgetKind { HERO, DIAL, RINGS, PILL, WEATHER }
@@ -86,7 +92,15 @@ object WidgetPainters {
         c.save()
         c.clipPath(clip)
 
-        when (d.themeKey) {
+        val sceneEntry = SceneRegistry.fromThemeKey(d.themeKey)
+        if (sceneEntry != null) {
+            // Speed scene: a STATIC frame of the same renderer the hero and
+            // bubble animate (RemoteViews can't animate; the 1 Hz service push
+            // effectively plays the scene at 1 fps). Scrim keeps text legible.
+            drawSceneMotif(c, wf, hf, d, sceneEntry)
+            sceneScrim(c, wf, hf)
+            heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+        } else when (d.themeKey) {
             "kinetic" -> {                       // calm gradient, nothing but the number
                 drawFlow(c, wf, hf, d)
                 val num = SpeedFormatter.parts(d.downBps)
@@ -233,6 +247,38 @@ object WidgetPainters {
      *  - The number+unit row auto-shrinks to fit the available width (a 4-digit
      *    "1023 KB/s" used to overflow the card on the shifted motifs).
      */
+    /** Scene instances persist across pushes so frames stay coherent at 1 fps. */
+    private val sceneCache = HashMap<String, SpeedScene>()
+    private val sceneState = SceneState()
+
+    private fun drawSceneMotif(c: Canvas, wf: Float, hf: Float, d: WidgetData, entry: SceneRegistry.Entry) {
+        val scene = sceneCache.getOrPut(entry.id) { entry.factory() }
+        val mbps = d.downBps / 1_048_576f
+        val th = d.tierThresholds.toFloatArray()
+        sceneState.apply {
+            this.mbps = mbps
+            sc = SpeedTiers.norm(mbps)
+            tier = SpeedTiers.rawIndex(mbps, th)
+            tierFrac = SpeedTiers.tierFrac(mbps, th)
+            tierProgress = SpeedTiers.tierProgress(mbps)
+            accentArgb = SpeedTiers.blendAccentArgb(mbps)
+            // Wall-clock scene time: consecutive 1 Hz pushes advance the scene.
+            timeS = (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
+            dtS = 0f                              // static frame, no pool stepping
+            dark = true
+        }
+        scene.render(c, wf, hf, sceneState)
+    }
+
+    /** Left + top gradients under [heroTexts] so the number/today never fight the scene. */
+    private fun sceneScrim(c: Canvas, wf: Float, hf: Float) {
+        val p = Paint()
+        p.shader = LinearGradient(0f, 0f, wf * 0.65f, 0f, 0xA6000000.toInt(), 0, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, wf * 0.65f, hf, p)
+        p.shader = LinearGradient(0f, 0f, 0f, hf * 0.25f, 0x73000000, 0, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, wf, hf * 0.25f, p)
+    }
+
     private fun heroTexts(
         c: Canvas, w: Int, h: Int, d: WidgetData, fg: Int, fg60: Int,
         sparkline: Boolean, leftFrac: Float = 0.06f,

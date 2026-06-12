@@ -86,6 +86,7 @@ import com.netspeed.indicator.data.HeroTheme
 import com.netspeed.indicator.data.IconStyle
 import com.netspeed.indicator.data.LiveSpeed
 import com.netspeed.indicator.data.Settings
+import com.netspeed.indicator.render.scenes.SceneRegistry
 import com.netspeed.indicator.service.IconRenderer
 import com.netspeed.indicator.service.SpeedFormatter
 import com.netspeed.indicator.ui.hero.TierFlowHero
@@ -388,7 +389,7 @@ fun SettingsScreen(
                 }
                 ToggleRow(
                     title = "Lock bubble size",
-                    subtitle = "Fixed badge box — text auto-scales to fill it. The size slider is ignored while locked.",
+                    subtitle = "Freezes the badge at its CURRENT size — text auto-scales to fill it. Tune from tiny to full-width below.",
                     checked = settings.bubbleLockSize,
                     onCheckedChange = { tap(); onBubbleLockSize(it) },
                     tierColor = tierColor,
@@ -397,21 +398,21 @@ fun SettingsScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Badge width", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                            Text("${settings.bubbleBoxW} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                            Text(if (settings.bubbleBoxW == 0) "current" else "${settings.bubbleBoxW} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                         }
                         Slider(
-                            value = settings.bubbleBoxW.toFloat(),
+                            value = if (settings.bubbleBoxW == 0) 120f else settings.bubbleBoxW.toFloat(),
                             onValueChange = { onBubbleBoxW((it / 4f).toInt() * 4) },
-                            valueRange = 60f..280f,
+                            valueRange = 32f..400f,
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Badge height", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                            Text("${settings.bubbleBoxH} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                            Text(if (settings.bubbleBoxH == 0) "current" else "${settings.bubbleBoxH} dp", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                         }
                         Slider(
-                            value = settings.bubbleBoxH.toFloat(),
+                            value = if (settings.bubbleBoxH == 0) 40f else settings.bubbleBoxH.toFloat(),
                             onValueChange = { onBubbleBoxH((it / 2f).toInt() * 2) },
-                            valueRange = 28f..120f,
+                            valueRange = 20f..200f,
                         )
                     }
                 }
@@ -428,26 +429,30 @@ fun SettingsScreen(
                     selected = settings.bubbleFont,
                     onPick = { tap(); onBubbleFont(it) },
                 )
-                ChipPickRow(
+                ScenePreviewRow(
                     label = "Bubble animation — reacts to your live speed",
-                    options = listOf("none" to "None", "flame" to "🔥 Flame", "glow" to "✨ Glow", "sparks" to "⚡ Sparks", "lottie" to "✈️ Scene"),
                     selected = settings.bubbleFx,
+                    live = live,
                     onPick = { tap(); onBubbleFx(it) },
                 )
-                if (settings.bubbleFx == "lottie") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { tap(); onPickLottieFile() }, modifier = Modifier.weight(1f)) {
-                            Text(if (settings.bubbleLottieUri.isEmpty()) "Animation file… (Lottie .json)" else "Change animation file…", fontSize = 12.sp)
+                val sceneActive = settings.bubbleFx == "lottie" ||
+                    SceneRegistry.isScene(settings.bubbleFx)
+                if (sceneActive) {
+                    if (settings.bubbleFx == "lottie") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { tap(); onPickLottieFile() }, modifier = Modifier.weight(1f)) {
+                                Text(if (settings.bubbleLottieUri.isEmpty()) "Animation file… (Lottie .json)" else "Change animation file…", fontSize = 12.sp)
+                            }
+                            if (settings.bubbleLottieUri.isNotEmpty()) {
+                                TextButton(onClick = { tap(); onClearLottieFile() }) { Text("Built-in ✈️", fontSize = 12.sp) }
+                            }
                         }
-                        if (settings.bubbleLottieUri.isNotEmpty()) {
-                            TextButton(onClick = { tap(); onClearLottieFile() }) { Text("Built-in ✈️", fontSize = 12.sp) }
-                        }
+                        Text(
+                            "Any Lottie animation plays inside the bubble, speed-mapped: it ambles when idle and races while you download. Thousands of free .json scenes online.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        )
                     }
-                    Text(
-                        "Any Lottie animation plays inside the bubble, speed-mapped: it ambles when idle and races while you download. Thousands of free .json scenes online.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                    )
                     ChipPickRow(
                         label = "Scene placement",
                         options = listOf("left" to "⬅ Left of text", "behind" to "🎞 Background", "right" to "➡ Right of text"),
@@ -931,12 +936,18 @@ private fun UnitStyleRow(
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             com.netspeed.indicator.data.UnitStyle.entries.forEach { style ->
                 val on = style == selected
                 Text(
                     style.label,
                     fontSize = 12.sp,
+                    maxLines = 1,
                     color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -965,7 +976,12 @@ private fun BorderWidthRow(selected: Int, onPick: (Int) -> Unit) {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             (1..3).forEach { w ->
                 val on = w == selected
                 Text(
@@ -1069,7 +1085,12 @@ private fun ColorSwatchRow(
     val pick: (Int) -> Unit = { view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); onPick(it) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             swatches.forEach { (argb, _) ->
                 Swatch(
                     fill = if (android.graphics.Color.alpha(argb) == 0) MaterialTheme.colorScheme.surface else Color(argb),
@@ -1418,12 +1439,19 @@ private fun ChipPickRow(
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Scrolls on narrow screens — chip sets routinely outgrow 320 dp.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             options.forEach { (key, text) ->
                 val on = key == selected
                 Text(
                     text,
                     fontSize = 12.sp,
+                    maxLines = 1,
                     color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -1472,7 +1500,12 @@ private fun BubblePositionPad(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             listOf(
                 BubbleCorner.TOP_LEFT to "◴ Top-L",
                 BubbleCorner.TOP_RIGHT to "◷ Top-R",
@@ -1483,6 +1516,7 @@ private fun BubblePositionPad(
                 Text(
                     label,
                     fontSize = 11.sp,
+                    maxLines = 1,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -1492,7 +1526,8 @@ private fun BubblePositionPad(
                 )
             }
         }
-        // Nudge pad: ◀ ▲ ▼ ▶ in one row — small, repeatable steps.
+        // Fine-tune, split across two rows so 320 dp screens fit everything:
+        // step picker first, then the four big-target nudge arrows.
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1518,6 +1553,8 @@ private fun BubblePositionPad(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                 )
             }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
                 "◀" to Pair(-1, 0), "▶" to Pair(1, 0),
                 "▲" to Pair(0, -1), "▼" to Pair(0, 1),
@@ -1531,7 +1568,7 @@ private fun BubblePositionPad(
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                         .selectable(selected = false, onClick = { onNudge(d.first, d.second) })
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
                 )
             }
         }
@@ -1647,8 +1684,10 @@ private fun LiveThemeRow(
                         .selectable(selected = active, onClick = { if (locked) onLocked() else onSelect(theme) })
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
+                    val emoji = SceneRegistry.fromThemeKey(theme.storageKey)?.emoji
+                    val label = if (emoji != null) "$emoji ${theme.label}" else theme.label
                     Text(
-                        if (locked) "🔒 ${theme.label}" else theme.label,
+                        if (locked) "🔒 $label" else label,
                         fontSize = 13.sp,
                         color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     )

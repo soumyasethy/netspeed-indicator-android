@@ -41,7 +41,7 @@ the device.**
 
 ---
 
-## 🎨 15 live themes × 6 colour skins
+## 🎨 26 live themes × 6 colour skins
 
 Pick a **theme** for the motion and a **skin** for the palette — they compose. A skin
 repaints the *whole* app in one identity: hero, chips, toggles, the home-screen widgets,
@@ -60,7 +60,9 @@ even the status-bar chip. Six of the combinations:
 </div>
 
 > Themes: Kinetic · Tier flow · Liquid · ECG · Dial · Radar · Particles · Curtains ·
-> Material You · Sky · Bento · Terminal · Brutalist · Glass · Speedtest.
+> Material You · Sky · Bento · Terminal · Brutalist · Glass · Speedtest — plus 11
+> **speed scenes**: Journey · Comet · Heartbeat · Manga · Data river · Fireflies ·
+> Blob · Turbine · Runner · Lightning jar · Tachometer.
 > Skins: Tier · Aurora · Carbon pulse · Glasswave · Neo-brutal · Terminal.
 
 ---
@@ -89,9 +91,15 @@ even the status-bar chip. Six of the combinations:
   widget picker.
 
 ### 🎨 Animated dashboard
-- **15 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
-  Material You, Sky, Bento, Terminal, Brutalist, Glass, Speedtest) × **6 colour skins**
-  (Tier, Aurora, Carbon, Glasswave, Neo-brutal, Terminal).
+- **26 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
+  Material You, Sky, Bento, Terminal, Brutalist, Glass, Speedtest + 11 speed scenes) ×
+  **6 colour skins** (Tier, Aurora, Carbon, Glasswave, Neo-brutal, Terminal).
+- **Speed scenes** — tiny procedural dioramas DRIVEN by your live speed: the Journey
+  world climbs from a crawling snail through bicycle, car and plane to a rocket in
+  space as your connection speeds up; a comet grows its tail, a stick runner sprints,
+  an RPM bar shifts gears. One renderer powers the hero banner, the home-screen
+  widgets AND the floating bubble (beside the text or as its animated background),
+  with live previews in settings to pick by eye.
 - Smooth, gemini-style **flowing gradients** (constant-velocity, reduced-motion aware).
 - A Material 3 **design system** whose primary/secondary/tertiary colours all derive
   from the active skin.

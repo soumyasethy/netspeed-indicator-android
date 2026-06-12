@@ -10,10 +10,16 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.graphics.RectF
 import android.view.Choreographer
 import android.view.View
 import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieDrawable
+import com.netspeed.indicator.core.SpeedTiers
+import com.netspeed.indicator.core.TierTracker
+import com.netspeed.indicator.render.scenes.SceneRegistry
+import com.netspeed.indicator.render.scenes.SceneState
+import com.netspeed.indicator.render.scenes.SpeedScene
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -36,11 +42,23 @@ import kotlin.math.sin
 @SuppressLint("ViewConstructor")
 class BubbleFxView(context: Context) : View(context) {
 
-    enum class Fx { NONE, FLAME, GLOW, SPARKS, LOTTIE }
+    enum class Fx { NONE, FLAME, GLOW, SPARKS, LOTTIE, SCENE }
 
     private var chip: Bitmap? = null
     private var fx: Fx = Fx.NONE
     private var accent: Int = 0xFF7C3AED.toInt()
+
+    /** Procedural speed scene (comet, tach, journey…): same placement semantics
+     *  as the Lottie scene, but pure Canvas and speed-DRIVEN, not just speed-paced. */
+    private var scene: SpeedScene? = null
+    private var sceneKey: String = ""
+    private val sceneState = SceneState()
+    private val sceneTier = TierTracker()
+    private var thresholds: FloatArray = SpeedTiers.DEFAULT_THRESHOLDS
+    private var sceneTargetMbps = 0f
+    private var sceneShownMbps = 0f
+    private val clipPath = Path()
+    private val clipRect = RectF()
 
     /** Lottie scene (the "endless possibilities" mode): plays BEHIND the chip,
      *  playback speed mapped to [intensity] — a trickle ambles, a download flies. */
@@ -53,9 +71,14 @@ class BubbleFxView(context: Context) : View(context) {
     var placement: String = "behind"
         set(value) { if (field != value) { field = value; requestLayout() } }
 
-    /** Width of the side slot when placement is left/right. */
-    private fun sideSlotW(c: Bitmap): Int =
-        if (fx == Fx.LOTTIE && placement != "behind") (c.height * 1.4f).roundToInt() else 0
+    /** Width of the side slot when placement is left/right. Scenes get a wider
+     *  slot (they are landscape dioramas, 208:70 reference aspect). */
+    private fun sideSlotW(c: Bitmap): Int = when {
+        placement == "behind" -> 0
+        fx == Fx.LOTTIE -> (c.height * 1.4f).roundToInt()
+        fx == Fx.SCENE -> (c.height * 1.6f).roundToInt()
+        else -> 0
+    }
 
     /** 0..1 — how hard the network is working; drives every effect. */
     var intensity: Float = 0f
@@ -75,24 +98,62 @@ class BubbleFxView(context: Context) : View(context) {
     private var sparkSeed = 7
 
     private var running = false
-    private var skip = false
+    private var vsync = 0
     private var timeMs = 0L
 
     private val frame = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
-            skip = !skip
-            if (!skip) {                       // ~30 fps on a 60 Hz panel
+            vsync++
+            // ~30 fps on a 60 Hz panel; scenes idle at ~15 fps (their idle
+            // states — sleeping runner, sputtering comet — ARE the content,
+            // but they don't need full cadence to read as alive).
+            val divider =
+                if (fx == Fx.SCENE && sceneShownMbps < 1f && sceneTargetMbps < 1f) 4 else 2
+            if (vsync % divider == 0) {
                 val now = frameTimeNanos / 1_000_000
-                val dt = if (lastFrameMs == 0L) 33L else (now - timeMs).coerceIn(1, 200)
+                val dt = if (lastFrameMs == 0L) 33L else (now - timeMs).coerceIn(1, 300)
                 timeMs = now
                 lastFrameMs = now
                 stepSparks()
                 stepLottie(dt)
+                stepScene(dt)
                 invalidate()
             }
             Choreographer.getInstance().postFrameCallback(this)
         }
+    }
+
+    /** 1 Hz speed drive from the service; the view smooths it per frame. */
+    fun setSceneSpeed(mbps: Float, tierThresholds: FloatArray) {
+        sceneTargetMbps = mbps
+        if (!thresholds.contentEquals(tierThresholds)) {
+            thresholds = tierThresholds
+            sceneTier.setThresholds(tierThresholds)
+        }
+    }
+
+    /** Advance the scene clock + smoothed speed and refill the shared state. */
+    private fun stepScene(dtMs: Long) {
+        if (fx != Fx.SCENE) return
+        val dtS = dtMs / 1000f
+        // Reference smoothing is 0.06/frame at 60 fps; we run at ~30 fps.
+        sceneShownMbps += (sceneTargetMbps - sceneShownMbps) * 0.12f
+        sceneState.dtS = dtS
+        sceneState.timeS += dtS
+        fillSceneState(dtMs)
+    }
+
+    private fun fillSceneState(dtMs: Long) {
+        sceneState.mbps = sceneShownMbps
+        sceneState.sc = SpeedTiers.norm(sceneShownMbps)
+        sceneState.tier = sceneTier.update(sceneShownMbps, dtMs).index
+        sceneState.tierFrac = SpeedTiers.tierFrac(sceneShownMbps, thresholds)
+        sceneState.tierProgress = SpeedTiers.tierProgress(sceneShownMbps)
+        sceneState.accentArgb = SpeedTiers.blendAccentArgb(sceneShownMbps)
+        // Day/light variants in the bubble (day turbine, light manga paper) —
+        // the iconic gallery looks; widgets keep the night variants.
+        sceneState.dark = false
     }
 
     fun setChip(bitmap: Bitmap) {
@@ -102,12 +163,22 @@ class BubbleFxView(context: Context) : View(context) {
     }
 
     fun setEffect(key: String, accentArgb: Int) {
-        fx = when (key) {
-            "flame" -> Fx.FLAME
-            "glow" -> Fx.GLOW
-            "sparks" -> Fx.SPARKS
-            "lottie" -> Fx.LOTTIE
-            else -> Fx.NONE
+        if (SceneRegistry.isScene(key)) {
+            if (sceneKey != key) {
+                scene = SceneRegistry.create(key)
+                sceneKey = key
+            }
+            fx = Fx.SCENE
+        } else {
+            scene = null
+            sceneKey = ""
+            fx = when (key) {
+                "flame" -> Fx.FLAME
+                "glow" -> Fx.GLOW
+                "sparks" -> Fx.SPARKS
+                "lottie" -> Fx.LOTTIE
+                else -> Fx.NONE
+            }
         }
         accent = accentArgb
         syncLoop()
@@ -137,10 +208,12 @@ class BubbleFxView(context: Context) : View(context) {
         d.progress = p
     }
 
-    /** Margin around the chip reserved for the effect (and easier grabbing). */
+    /** Margin around the chip reserved for the effect (and easier grabbing).
+     *  Scenes get none: in behind mode the scene IS the background, so the
+     *  bubble footprint stays identical to a plain chip. */
     private fun fxPad(): Int {
         val c = chip ?: return 0
-        return if (fx == Fx.NONE) 0 else (c.height * 0.55f).roundToInt()
+        return if (fx == Fx.NONE || fx == Fx.SCENE) 0 else (c.height * 0.55f).roundToInt()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -168,7 +241,15 @@ class BubbleFxView(context: Context) : View(context) {
     }
 
     private fun syncLoop() {
-        val want = isAttachedToWindow && fx != Fx.NONE && intensity > 0.01f
+        // Scenes animate regardless of traffic: the sleeping runner, sputtering
+        // comet and gear-1 tach ARE the designed idle look. Battery holds via
+        // vsync stopping at screen-off, detach on hide, the 30 fps cap and the
+        // 15 fps idle divider. Aura effects keep the intensity gate.
+        val want = isAttachedToWindow && when (fx) {
+            Fx.NONE -> false
+            Fx.SCENE -> true
+            else -> intensity > 0.01f
+        }
         if (want && !running) {
             running = true
             Choreographer.getInstance().postFrameCallback(frame)
@@ -183,12 +264,21 @@ class BubbleFxView(context: Context) : View(context) {
         val c = chip ?: return
         val slot = sideSlotW(c)
         if (slot > 0) {
-            // Mascot-beside-the-number: scene in its slot, chip alongside.
+            // Mascot-beside-the-number: scene in its slot, chip alongside —
+            // text/animation overlap is impossible by construction.
             val sceneLeft = if (placement == "left") 0 else c.width
             val chipLeft = if (placement == "left") slot else 0
-            // Scene stays visible when idle too — a STATIC frame (the loop is
-            // stopped, so this costs nothing); it only animates under traffic.
-            lottie?.let { d ->
+            if (fx == Fx.SCENE) scene?.let { scn ->
+                if (!running) sceneState.dtS = 0f    // static frame when idle
+                val save = canvas.save()
+                clipRoundRect(canvas, sceneLeft.toFloat(), 0f, (sceneLeft + slot).toFloat(), height.toFloat(), c.height * 0.22f)
+                canvas.translate(sceneLeft.toFloat(), 0f)
+                scn.render(canvas, slot.toFloat(), height.toFloat(), sceneState)
+                canvas.restoreToCount(save)
+            }
+            // Lottie scene stays visible when idle too — a STATIC frame (the
+            // loop is stopped, so this costs nothing).
+            if (fx == Fx.LOTTIE) lottie?.let { d ->
                 d.setBounds(sceneLeft, 0, sceneLeft + slot, height)
                 d.draw(canvas)
             }
@@ -201,13 +291,30 @@ class BubbleFxView(context: Context) : View(context) {
             Fx.GLOW -> drawGlow(canvas, pad, c)
             Fx.SPARKS -> drawSparks(canvas, pad, c)
             Fx.LOTTIE -> Unit   // drawn below, also when idle (static frame)
+            Fx.SCENE -> Unit    // drawn below, also when idle (static frame)
             Fx.NONE -> Unit
         }
         if (fx == Fx.LOTTIE) lottie?.let { d ->
             d.setBounds(0, 0, width, height)
             d.draw(canvas)
         }
+        if (fx == Fx.SCENE) scene?.let { scn ->
+            // The scene IS the background; round-clip so the bubble keeps the
+            // chip's pill silhouette instead of a hard rectangle.
+            if (!running) sceneState.dtS = 0f
+            val save = canvas.save()
+            clipRoundRect(canvas, 0f, 0f, width.toFloat(), height.toFloat(), height * 0.22f)
+            scn.render(canvas, width.toFloat(), height.toFloat(), sceneState)
+            canvas.restoreToCount(save)
+        }
         canvas.drawBitmap(c, pad, pad, bmpPaint)
+    }
+
+    private fun clipRoundRect(canvas: Canvas, l: Float, t: Float, r: Float, b: Float, radius: Float) {
+        clipRect.set(l, t, r, b)
+        clipPath.rewind()
+        clipPath.addRoundRect(clipRect, radius, radius, Path.Direction.CW)
+        canvas.clipPath(clipPath)
     }
 
     // --- flame: tongues licking up from the chip's top edge ---------------------

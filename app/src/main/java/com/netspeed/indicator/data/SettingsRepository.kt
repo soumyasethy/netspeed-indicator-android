@@ -79,8 +79,9 @@ data class Settings(
     /** Fixed-size badge mode: lock the bubble box; content auto-fits inside. */
     val bubbleLockSize: Boolean = false,
     /** Locked box dimensions in dp. */
-    val bubbleBoxW: Int = 140,
-    val bubbleBoxH: Int = 48,
+    /** Locked badge box in dp; 0 = capture the CURRENT size when lock turns on. */
+    val bubbleBoxW: Int = 0,
+    val bubbleBoxH: Int = 0,
     /** Persisted bubble position (window coordinates). */
     val floatingChipX: Int = DEFAULT_CHIP_X,
     val floatingChipY: Int = DEFAULT_CHIP_Y,
@@ -145,8 +146,8 @@ class SettingsRepository(private val context: Context) {
             bubbleLottieUri = p[KEY_BUBBLE_LOTTIE] ?: "",
             bubbleFxPlacement = p[KEY_BUBBLE_FX_PLACE] ?: "behind",
             bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: false,
-            bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 140).coerceIn(60, 280),
-            bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 48).coerceIn(28, 120),
+            bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 0).let { if (it == 0) 0 else it.coerceIn(32, 400) },
+            bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 0).let { if (it == 0) 0 else it.coerceIn(20, 200) },
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
@@ -200,9 +201,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBubbleFx(v: String) = edit { it[KEY_BUBBLE_FX] = v }
     suspend fun setBubbleLottieUri(v: String) = edit { it[KEY_BUBBLE_LOTTIE] = v }
     suspend fun setBubbleFxPlacement(v: String) = edit { it[KEY_BUBBLE_FX_PLACE] = v }
-    suspend fun setBubbleLockSize(v: Boolean) = edit { it[KEY_BUBBLE_LOCK] = v }
-    suspend fun setBubbleBoxW(v: Int) = edit { it[KEY_BUBBLE_BOX_W] = v.coerceIn(60, 280) }
-    suspend fun setBubbleBoxH(v: Int) = edit { it[KEY_BUBBLE_BOX_H] = v.coerceIn(28, 120) }
+    suspend fun setBubbleLockSize(v: Boolean) = edit {
+        it[KEY_BUBBLE_LOCK] = v
+        // Unlocking clears the stored box so the next lock re-captures the
+        // bubble's then-current size (lock = "freeze what I see now").
+        if (!v) {
+            it.remove(KEY_BUBBLE_BOX_W)
+            it.remove(KEY_BUBBLE_BOX_H)
+        }
+    }
+    suspend fun setBubbleBoxW(v: Int) = edit { it[KEY_BUBBLE_BOX_W] = v.coerceIn(32, 400) }
+    suspend fun setBubbleBoxH(v: Int) = edit { it[KEY_BUBBLE_BOX_H] = v.coerceIn(20, 200) }
     suspend fun setFloatingChipPadScale(v: Float) = edit { it[KEY_FLOAT_PAD] = v.coerceIn(1f, 2.5f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
     suspend fun setBubbleFreePlacement(value: Boolean) = edit { it[KEY_FLOAT_FREE] = value }

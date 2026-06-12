@@ -74,7 +74,25 @@ fun DrawScope.drawHeroBackground(
         HeroTheme.GLASS -> drawGlass(clock, accent, dark)
         // Speedtest: clean light/dark canvas — the dual charts ARE the visual.
         HeroTheme.SPEEDTEST -> drawRect(if (dark) Color(0xFF0E1116) else Color(0xFFF7F8FA))
+        // Speed scenes render in Hero.kt via the shared SpeedScene renderer;
+        // this branch only paints the base if ever reached.
+        else -> drawRect(baseColor(dark))
     }
+}
+
+/**
+ * Center-weighted scrim drawn OVER a speed scene, UNDER the hero text: the
+ * text column never fights the diorama for contrast while the edges keep the
+ * scene at full brightness.
+ */
+fun DrawScope.drawSceneScrim() {
+    drawRect(
+        brush = Brush.radialGradient(
+            colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
+            center = center,
+            radius = (minOf(size.width, size.height) * 0.85f).coerceAtLeast(1f),
+        ),
+    )
 }
 
 // Canvas themes always use a dark base so the white floating content stays

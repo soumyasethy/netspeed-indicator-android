@@ -78,6 +78,49 @@ object SpeedTiers {
         Color(ColorUtils.blendARGB(from.toArgb(), to.toArgb(), t.toFloat()))
 
     private fun lerp(from: Color, to: Color, t: Float): Color = lerp(from, to, t.toDouble())
+
+    /** Shared speed ceiling (MB/s) used by hero fill, widgets and scenes. */
+    const val CEILING_MBPS = 48f
+
+    /** 0..1 normalized speed against the shared 48 MB/s ceiling. */
+    fun norm(speedMBps: Float): Float = (speedMBps / CEILING_MBPS).coerceIn(0f, 1f)
+
+    /**
+     * Within-tier progress 0..1: how far the speed sits between its tier's lower
+     * and upper bound (upper bound of the top tier = [CEILING_MBPS]). Drives the
+     * tachometer scene's RPM bar so it is mathematically exact per tier bounds.
+     */
+    fun tierFrac(speedMBps: Float, thresholds: FloatArray = DEFAULT_THRESHOLDS): Float {
+        val idx = rawIndex(speedMBps, thresholds)
+        val lo = if (idx == 0) 0f else thresholds[idx - 1]
+        val hi = if (idx >= thresholds.size) CEILING_MBPS else thresholds[idx]
+        val span = (hi - lo).coerceAtLeast(0.0001f)
+        return ((speedMBps - lo) / span).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Continuous 0..4 position between tier CENTERS — the piecewise-lerp the
+     * blended gradient already uses, exposed as a scalar. Scene environments
+     * (Journey's dawn→space blend) interpolate on this so nothing ever snaps.
+     */
+    fun tierProgress(speedMBps: Float): Float {
+        if (speedMBps <= CENTERS.first()) return 0f
+        if (speedMBps >= CENTERS.last()) return (CENTERS.size - 1).toFloat()
+        var i = 0
+        while (i < CENTERS.size - 2 && speedMBps > CENTERS[i + 1]) i++
+        return i + (speedMBps - CENTERS[i]) / (CENTERS[i + 1] - CENTERS[i])
+    }
+
+    /** Continuous accent (c2 blend) as an ARGB int — allocation-free for render paths. */
+    fun blendAccentArgb(speedMBps: Float): Int {
+        val s = speedMBps.coerceIn(CENTERS.first(), CENTERS.last())
+        var hi = 1
+        while (hi < CENTERS.size && s > CENTERS[hi]) hi++
+        val lo = (hi - 1).coerceAtLeast(0)
+        val span = (CENTERS[hi] - CENTERS[lo]).coerceAtLeast(0.0001f)
+        val t = ((s - CENTERS[lo]) / span).coerceIn(0f, 1f)
+        return ColorUtils.blendARGB(ALL[lo].c2.toArgb(), ALL[hi].c2.toArgb(), t)
+    }
 }
 
 /**

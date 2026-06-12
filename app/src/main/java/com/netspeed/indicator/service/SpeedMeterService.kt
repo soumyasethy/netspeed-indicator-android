@@ -339,8 +339,14 @@ class SpeedMeterService : LifecycleService() {
 
         iconRenderer.fontScale = resources.configuration.fontScale   // honor system font size
         iconRenderer.userScale = settings.iconTextScale              // user size override
+        // Colour-true bars (One UI) render bitmap small icons verbatim → the
+        // full-colour chip applies; tinted bars get bare max-contrast glyphs.
+        iconRenderer.colorTrue =
+            android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
         iconRenderer.bgColorArgb = settings.iconBgColor
-        iconRenderer.fgColorArgb = settings.iconFgColor
+        // Glyphs must never go transparent in the bar — fall back to white.
+        iconRenderer.fgColorArgb =
+            if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         iconRenderer.unitStyle = settings.iconUnitStyle
         iconRenderer.borderColorArgb = settings.iconBorderColor
         iconRenderer.borderWidth = settings.iconBorderWidth
@@ -428,22 +434,39 @@ class SpeedMeterService : LifecycleService() {
         floatingChip.applyScale(settings.floatingChipScale)   // bubble-size slider, live
         floatingChip.lockedBox = if (settings.bubbleLockSize) {
             val d = resources.displayMetrics.density
-            (settings.bubbleBoxW * d).toInt() to (settings.bubbleBoxH * d).toInt()
+            var wDp = settings.bubbleBoxW
+            var hDp = settings.bubbleBoxH
+            if (wDp == 0 || hDp == 0) {
+                // Lock just turned on with no stored box: capture the bubble's
+                // CURRENT size (what the user sees is what gets locked) and
+                // persist it once; the sliders then fine-tune from there.
+                val probe = bubbleRenderer.renderChip(
+                    style = settings.iconStyle,
+                    downBps = downShown,
+                    upBps = upShown,
+                    showCombined = settings.showCombined,
+                )
+                val curH = FloatingChip.BASE_HEIGHT_DP * settings.floatingChipScale
+                hDp = curH.toInt().coerceIn(20, 200)
+                wDp = (probe.width * (curH / probe.height)).toInt().coerceIn(32, 400)
+                val w0 = wDp
+                val h0 = hDp
+                lifecycleScope.launch {
+                    repo.setBubbleBoxW(w0)
+                    repo.setBubbleBoxH(h0)
+                }
+            }
+            (wDp * d).toInt() to (hDp * d).toInt()
         } else null
 
         val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
-        val fxActive = settings.bubbleFx != "none"
         bubbleRenderer.fontScale = resources.configuration.fontScale
         bubbleRenderer.userScale = settings.iconTextScale
-        // With an active effect the user's TRUE background applies — transparent
-        // means the animation IS the background (digits get a shadow halo for
-        // legibility). Without fx, transparent falls back to a readable pill.
-        bubbleRenderer.bgColorArgb = when {
-            Color.alpha(settings.iconBgColor) != 0 -> settings.iconBgColor
-            fxActive -> 0
-            else -> 0xE6101218.toInt()
-        }
-        bubbleRenderer.glyphShadow = fxActive && Color.alpha(settings.iconBgColor) == 0
+        // The user's background is honored VERBATIM: "None" means truly
+        // transparent — bare digits over the wallpaper (or over the scene).
+        // The shadow halo keeps them readable on any backdrop.
+        bubbleRenderer.bgColorArgb = settings.iconBgColor
+        bubbleRenderer.glyphShadow = Color.alpha(settings.iconBgColor) == 0
         bubbleRenderer.fgColorArgb =
             if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         bubbleRenderer.unitStyle = settings.iconUnitStyle
@@ -474,6 +497,10 @@ class SpeedMeterService : LifecycleService() {
                 .let { kotlin.math.sqrt(it) },
             accentArgb = accent,
             lottie = lottie,
+            // Speed scenes are DRIVEN by speed (not just paced): smoothed MB/s
+            // plus the user's tier thresholds for exact gear/journey mapping.
+            sceneMbps = downShown / 1_048_576f,
+            tierThresholds = settings.thresholdsArray(),
         )
     }
 
@@ -508,6 +535,7 @@ class SpeedMeterService : LifecycleService() {
                 phase = com.netspeed.indicator.core.GradientFlow.phase(System.currentTimeMillis()),
                 themeKey = settings.heroTheme.storageKey,
                 heroFgArgb = settings.colorSkin.heroFg.toArgb(),
+                tierThresholds = settings.tierThresholds,
             ),
         )
     }

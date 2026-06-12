@@ -57,11 +57,12 @@ class IconRenderer(private val sizePx: Int = 96) {
     var unitStyle: UnitStyle = UnitStyle.DEFAULT
 
     /**
-     * Colour-true mode (in-app previews): glyphs are painted in [fgColorArgb] ON
-     * TOP of the chip, exactly like the floating bubble, so every colour choice is
-     * visible. The real status-bar bitmap keeps punch-out (false): the OS tints
-     * small icons monochrome-by-alpha, so painted colours would tint into a solid
-     * box there — holes survive the tint.
+     * Colour-true mode: glyphs are painted in [fgColorArgb] ON TOP of the chip,
+     * exactly like the floating bubble, so every colour choice is visible. True
+     * for in-app previews and for bars that render bitmap small icons verbatim
+     * (Samsung One UI). False (tinted bars: Pixel/AOSP read the bitmap as an
+     * alpha mask) → decoration is skipped entirely and bare glyphs ship, because
+     * any fill would tint to the glyph colour and destroy contrast.
      */
     var colorTrue: Boolean = false
 
@@ -142,12 +143,19 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun render(style: IconStyle, downBps: Long, upBps: Long, showCombined: Boolean): Bitmap {
         applyColors()
-        chipAdapt = isDecorated
-        val s = if (isDecorated) chipStyle(style) else style
-        return frame(
-            content = contentFor(s, downBps, upBps, showCombined),
-            refContent = { contentFor(s, REF_BPS, REF_BPS, showCombined) },
-        )
+        // Decoration only exists where it can survive: a colour-true bar
+        // (Samsung One UI renders bitmap small icons verbatim). On tinted bars
+        // the OS reads this bitmap as an ALPHA MASK — a pill fill tints to the
+        // same colour as the glyphs, so any decoration can only destroy glyph
+        // contrast (the old punch-out keyline left digits readable through a
+        // sub-pixel transparent ring — "the text looks transparent"). Tinted
+        // bars therefore always get bare glyphs: maximum crispness; the user's
+        // colours live on in the shade accent, the bubble and the widgets.
+        val framed = isDecorated && colorTrue
+        chipAdapt = framed
+        val s = if (framed) chipStyle(style) else style
+        val content = contentFor(s, downBps, upBps, showCombined)
+        return if (framed) frame(content) else content
     }
 
     /**
@@ -200,28 +208,22 @@ class IconRenderer(private val sizePx: Int = 96) {
         get() = Color.alpha(bgColorArgb) != 0 || Color.alpha(borderColorArgb) != 0
 
     private val chipContentPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val punchPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
-    }
 
     /**
-     * Decorates glyph content with the optional background pill / outline.
-     * The chip is one FIXED square badge — exactly [sizePx] × [sizePx] — so it
-     * always fills the OS icon slot by height and never changes size with the
-     * value. Content is fit-scaled into a thinly padded (6%) inner box: at slot
-     * size the punched-out digits must DOMINATE the chip or they blur into the
-     * fill, so the glyphs get ~80–94% of the chip, modulated by the user's
-     * text-size slider (which therefore stays visibly effective inside the chip).
+     * Decorates glyph content with the optional background pill / outline —
+     * ONLY meaningful on colour-true bars (see [render]). The chip is one FIXED
+     * square badge — exactly [sizePx] × [sizePx] — so it always fills the OS
+     * icon slot by height and never changes size with the value. Content is
+     * fit-scaled into a thinly padded (6%) inner box and painted FULL-COLOUR on
+     * top of the pill — solid fg digits on the user's bg, no punch-out.
      *
-     * LEGIBILITY FALLBACK: if the fitted digits would still land below
+     * LEGIBILITY FALLBACK: if the fitted digits would land below
      * [MIN_LEGIBLE_FRACTION] of the chip (wide content squeezed into the square —
      * e.g. two-row styles or long "1023 KB/s" rows), the chip is skipped and the
      * plain undecorated glyphs are returned instead. Deterministic per
      * style/unit/value — never an intermittent blank box.
-     *
-     * Without bg and outline the tight content is returned as-is.
      */
-    private fun frame(content: Bitmap, refContent: () -> Bitmap): Bitmap {
+    private fun frame(content: Bitmap): Bitmap {
         if (!isDecorated) return content
         val h = sizePx
         val w = sizePx
@@ -252,26 +254,7 @@ class IconRenderer(private val sizePx: Int = 96) {
         val left = (w - dw) / 2f
         val top = (h - dh) / 2f
         val dst = android.graphics.RectF(left, top, left + dw, top + dh)
-        if (!colorTrue && Color.alpha(bgColorArgb) != 0) {
-            // KEYLINE GLYPHS: punch the glyph hole out of the fill (DST_OUT), then
-            // paint the glyph back slightly smaller inside it. A bare hole's
-            // "colour" is whatever wallpaper sits behind the status bar — digits
-            // randomly read black/white as the background changes. With the inset
-            // repaint, under an OS tint the digits render in the tint colour ringed
-            // by a crisp transparent outline (stable on any wallpaper); on a
-            // colour-true bar the real fg/bg colours show with the same keyline.
-            canvas.drawBitmap(content, null, dst, punchPaint)
-            val inset = Bitmap.createBitmap(content.width, content.height, Bitmap.Config.ARGB_8888)
-            Canvas(inset).drawBitmap(content, null, android.graphics.RectF(
-                content.width * (1f - GLYPH_INSET) / 2f,
-                content.height * (1f - GLYPH_INSET) / 2f,
-                content.width * (1f + GLYPH_INSET) / 2f,
-                content.height * (1f + GLYPH_INSET) / 2f,
-            ), chipContentPaint)
-            canvas.drawBitmap(inset, null, dst, chipContentPaint)
-        } else {
-            canvas.drawBitmap(content, null, dst, chipContentPaint)
-        }
+        canvas.drawBitmap(content, null, dst, chipContentPaint)
         return out
     }
 
@@ -308,14 +291,11 @@ class IconRenderer(private val sizePx: Int = 96) {
     }
 
     private companion object {
-        /** Reference rate (888 KiB/s) for stable frame sizing — widest typical digits. */
-        const val REF_BPS = 888L * 1024L
 
         /** Minimum digit height (fraction of the chip) for a legible punched chip. */
         const val MIN_LEGIBLE_FRACTION = 0.42f
 
         /** Inset glyph scale inside its punched hole — the gap is the keyline. */
-        const val GLYPH_INSET = 0.86f
     }
 
     // --- stacked styles --------------------------------------------------------
@@ -582,11 +562,10 @@ class IconRenderer(private val sizePx: Int = 96) {
      */
     fun renderSingle(bps: Long, down: Boolean): Bitmap {
         applyColors()
-        chipAdapt = isDecorated
-        return frame(
-            content = singleContent(bps, down),
-            refContent = { singleContent(REF_BPS, down) },
-        )
+        val framed = isDecorated && colorTrue   // see render(): tinted bars stay bare
+        chipAdapt = framed
+        val content = singleContent(bps, down)
+        return if (framed) frame(content) else content
     }
 
     private fun singleContent(bps: Long, down: Boolean): Bitmap {
