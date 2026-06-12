@@ -26,7 +26,9 @@ class MangaScene : SpeedScene {
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
         val k = sceneScale(w, h)
         val sc = s.sc
-        val ink = if (s.dark) WHITE else INK   // INK doubles as the dark paper
+        // Over a transparent backdrop (bubble on the wallpaper) ink must be
+        // white to survive any background; otherwise it pairs with the paper.
+        val ink = if (s.transparentBg || s.dark) WHITE else INK
 
         paint.style = Paint.Style.FILL
         if (!s.transparentBg) {
@@ -37,6 +39,11 @@ class MangaScene : SpeedScene {
         val cx = w * 0.62f
         val cy = h * 0.5f
 
+        // Screentone — the halftone-dot shading every manga page carries. Two
+        // corner fades keep the panel rich even when nothing else moves.
+        paint.style = Paint.Style.FILL
+        screentone(canvas, w, h, k, ink)
+
         if (s.dtS > 0f) {
             if (prevTier >= 0 && s.tier != prevTier) flashFrames = 2   // impact frame
             prevTier = s.tier
@@ -44,23 +51,26 @@ class MangaScene : SpeedScene {
 
         paint.style = Paint.Style.STROKE
         if (s.tier == 0) {
-            // Crawling: exactly 3–4 short droopy down-right strokes from a FIXED
-            // seed — a calm, pathetic page with zero flicker.
+            // Crawling: 3–4 droopy down-right strokes (the manga idiom for
+            // pathetic) — but ALIVE: they sag on a slow sine and the ink
+            // breathes, so idle never reads as a frozen frame.
             rng.reset(CRAWL_SEED)
             val n = 3 + if (rng.next() < 0.5f) 0 else 1
+            val breathe = 0.8f + 0.2f * sin(s.timeS * 0.9f)
             for (i in 0 until n) {
-                val a = 0.3f + rng.next() * 0.45f          // ~17°–43° below horizontal
+                val sag = sin(s.timeS * 1.1f + i * 1.9f) * 0.08f
+                val a = 0.3f + rng.next() * 0.45f + sag    // ~17°–43° below horizontal
                 val l0 = (13f + rng.next() * 6f) * k
-                val len = (14f + rng.next() * 12f) * k
-                paint.color = argbWithAlpha(ink, 0.3f + rng.next() * 0.25f)
-                paint.strokeWidth = (1f + rng.next() * 0.8f) * k
+                val len = (20f + rng.next() * 16f) * k
+                paint.color = argbWithAlpha(ink, (0.45f + rng.next() * 0.25f) * breathe)
+                paint.strokeWidth = (1.3f + rng.next() * 0.8f) * k
                 val sx = cx + cos(a) * l0
                 val sy = cy + sin(a) * l0 * 0.5f
                 val mx = sx + cos(a) * len * 0.6f
                 val my = sy + sin(a) * len * 0.6f
                 // Second half bends further down — the droop.
-                val ex = mx + cos(a + 0.6f) * len * 0.4f
-                val ey = my + sin(a + 0.6f) * len * 0.4f
+                val ex = mx + cos(a + 0.6f + sag * 2f) * len * 0.4f
+                val ey = my + sin(a + 0.6f + sag * 2f) * len * 0.4f
                 canvas.drawLine(sx, sy, mx, my, paint)
                 canvas.drawLine(mx, my, ex, ey, paint)
             }
@@ -82,15 +92,17 @@ class MangaScene : SpeedScene {
             }
         }
 
-        // Focal dot; shakes at 30 Hz near the ceiling (burn the first draw —
-        // an LCG's first output is linear in the seed and would creep, not jitter).
+        // Focal dot; gently pulses at idle, shakes at 30 Hz near the ceiling
+        // (burn the first draw — an LCG's first output is linear in the seed
+        // and would creep, not jitter).
         var sh = 0f
         if (sc > 0.85f) {
             rng.reset(floor(s.timeS * 30f).toInt())
             rng.next()
             sh = (rng.next() - 0.5f) * 2.5f * k
         }
-        val r = (9f + sc * 4f) * k
+        val pulse = 1f + 0.05f * sin(s.timeS * 2.1f)
+        val r = (9f + sc * 4f) * k * pulse
         paint.style = Paint.Style.FILL
         paint.color = s.accentArgb
         canvas.drawCircle(cx + sh, cy + sh, r, paint)
@@ -105,6 +117,33 @@ class MangaScene : SpeedScene {
             paint.color = argbWithAlpha(WHITE, 0.12f)
             canvas.drawRect(0f, 0f, w, h, paint)
             if (s.dtS > 0f) flashFrames--
+        }
+    }
+
+    /** Halftone shading fading out of the top-right and bottom-left corners. */
+    private fun screentone(canvas: Canvas, w: Float, h: Float, k: Float, ink: Int) {
+        val step = 7f * k
+        val r = 1.1f * k
+        var row = 0
+        var y = step / 2f
+        while (y < h * 0.45f) {
+            val reach = w * (0.30f - row * 0.045f)
+            if (reach <= 0f) break
+            var x = w - step / 2f - (row % 2) * step / 2f
+            while (x > w - reach) {
+                paint.color = argbWithAlpha(ink, 0.10f)
+                canvas.drawCircle(x, y, r, paint)
+                x -= step
+            }
+            // Mirror dot on the bottom-left fade.
+            var x2 = step / 2f + (row % 2) * step / 2f
+            while (x2 < reach * 0.8f) {
+                paint.color = argbWithAlpha(ink, 0.08f)
+                canvas.drawCircle(x2, h - y, r, paint)
+                x2 += step
+            }
+            row++
+            y += step
         }
     }
 
