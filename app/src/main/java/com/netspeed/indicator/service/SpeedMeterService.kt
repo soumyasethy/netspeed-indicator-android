@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit
 class SpeedMeterService : LifecycleService() {
 
     private lateinit var repo: SettingsRepository
+    private lateinit var entitlements: com.netspeed.indicator.billing.EntitlementStore
     private lateinit var notifications: NotificationFactory
     private val iconRenderer = IconRenderer()
     private val sampler = SpeedSampler()
@@ -64,6 +65,9 @@ class SpeedMeterService : LifecycleService() {
     /** Set when the OS force-groups our notifications (One UI) — the side-by-side
      *  style then falls back from two icons to the single wide icon for this run. */
     @Volatile private var dualIconsBlocked: Boolean = false
+
+    /** Suite unlock — premium surfaces (the floating bubble) require it. */
+    @Volatile private var suiteUnlocked: Boolean = false
 
     // Display smoothing + idle auto-hide state (see tick()).
     private var displayDownBps: Double = 0.0
@@ -103,10 +107,12 @@ class SpeedMeterService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         repo = SettingsRepository(applicationContext)
+        entitlements = com.netspeed.indicator.billing.EntitlementStore(applicationContext)
         notifications = NotificationFactory(applicationContext)
         notifications.ensureChannel()
         registerScreenReceiver()
         observeSettings()
+        observeEntitlement()
         restoreTodayUsage()
         restoreLifetimeUsage()
     }
@@ -173,6 +179,12 @@ class SpeedMeterService : LifecycleService() {
                 // Recompute pause state when the screen-off preference flips.
                 applyPauseState()
             }
+        }
+    }
+
+    private fun observeEntitlement() {
+        lifecycleScope.launch {
+            entitlements.entitlement.collect { suiteUnlocked = it.suiteUnlocked }
         }
     }
 
@@ -340,7 +352,8 @@ class SpeedMeterService : LifecycleService() {
      * readable body to float against.
      */
     private fun syncFloatingChip(downShown: Long, upShown: Long) {
-        val wanted = settings.floatingChip && android.provider.Settings.canDrawOverlays(this)
+        val wanted = settings.floatingChip && suiteUnlocked &&
+            android.provider.Settings.canDrawOverlays(this)
         if (!wanted) {
             if (floatingChip.isShown) floatingChip.hide()
             return

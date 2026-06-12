@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.ShieldMoon
 import androidx.compose.material.icons.filled.Visibility
@@ -114,6 +115,8 @@ fun SettingsScreen(
     onIconBorderColor: (Int) -> Unit,
     onIconBorderWidth: (Int) -> Unit,
     onPinWidget: (com.netspeed.indicator.render.WidgetKind) -> Unit,
+    suiteUnlocked: Boolean,
+    onLockedTap: () -> Unit,
     onThresholdsChange: (List<Float>) -> Unit,
     onNamesChange: (List<String>) -> Unit,
     onQuotaChange: (Long) -> Unit,
@@ -170,18 +173,24 @@ fun SettingsScreen(
         )
         LiveThemeRow(
             selected = settings.heroTheme,
+            unlocked = suiteUnlocked,
             onSelect = { tap(); onThemeSelect(it) },
+            onLocked = onLockedTap,
             modifier = Modifier.padding(bottom = 6.dp),
         )
         SkinRow(
             selected = settings.colorSkin,
+            unlocked = suiteUnlocked,
             onSelect = { tap(); onSkinSelect(it) },
+            onLocked = onLockedTap,
             modifier = Modifier.padding(bottom = 8.dp),
         )
         // Right under the live hero: add ANY of the 5 widget styles straight to the
         // home screen (one tap → launcher's pin prompt). No digging in menus.
         AddToHomeRow(
+            locked = !suiteUnlocked,
             onPin = { tap(); onPinWidget(it) },
+            onLocked = onLockedTap,
             modifier = Modifier.padding(bottom = 8.dp),
         )
 
@@ -233,6 +242,8 @@ fun SettingsScreen(
                 onUnitStyle = onIconUnitStyle,
                 onBorderColor = onIconBorderColor,
                 onBorderWidth = onIconBorderWidth,
+                customColorUnlocked = suiteUnlocked,
+                onLockedColor = onLockedTap,
             )
             Hairline()
             ToggleRow(
@@ -261,13 +272,15 @@ fun SettingsScreen(
                 tierColor = tierColor,
             )
             ToggleRow(
-                title = "Floating speed bubble",
-                subtitle = "Draggable chip over any app — our own surface, always legible. Tap it to open NetSpeed.",
-                checked = settings.floatingChip,
-                onCheckedChange = { tap(); onFloatingChipToggle(it) },
+                title = if (suiteUnlocked) "Floating speed bubble" else "Floating speed bubble 🔒",
+                subtitle = if (suiteUnlocked)
+                    "Draggable chip over any app — our own surface, always legible. Tap it to open NetSpeed."
+                else "Premium — a draggable speed chip over any app. Tap to unlock the suite.",
+                checked = settings.floatingChip && suiteUnlocked,
+                onCheckedChange = { if (suiteUnlocked) { tap(); onFloatingChipToggle(it) } else onLockedTap() },
                 tierColor = tierColor,
             )
-            if (settings.floatingChip) {
+            if (settings.floatingChip && suiteUnlocked) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -676,6 +689,8 @@ private fun IconStyleCard(
     onUnitStyle: (com.netspeed.indicator.data.UnitStyle) -> Unit,
     onBorderColor: (Int) -> Unit,
     onBorderWidth: (Int) -> Unit,
+    customColorUnlocked: Boolean,
+    onLockedColor: () -> Unit,
 ) {
     val down = if (live.running) live.downBytesPerSec else 1_258_291L
     val up = if (live.running) live.upBytesPerSec else 245_760L
@@ -727,9 +742,9 @@ private fun IconStyleCard(
                 )
             }
             UnitStyleRow(selected = unitStyle, onPick = onUnitStyle)
-            ColorSwatchRow("Icon background", BG_SWATCHES, iconBg, allowAlpha = true, onPick = onBgColor)
-            ColorSwatchRow("Text / icon colour", FG_SWATCHES, iconFg, allowAlpha = false, onPick = onFgColor)
-            ColorSwatchRow("Outline", BORDER_SWATCHES, borderColor, allowAlpha = false, onPick = onBorderColor)
+            ColorSwatchRow("Icon background", BG_SWATCHES, iconBg, allowAlpha = true, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBgColor)
+            ColorSwatchRow("Text / icon colour", FG_SWATCHES, iconFg, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onFgColor)
+            ColorSwatchRow("Outline", BORDER_SWATCHES, borderColor, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBorderColor)
             if (android.graphics.Color.alpha(borderColor) != 0) {
                 BorderWidthRow(selected = borderWidth, onPick = onBorderWidth)
             }
@@ -879,6 +894,8 @@ private fun ColorSwatchRow(
     swatches: List<Pair<Int, String>>,
     selected: Int,
     allowAlpha: Boolean,
+    customUnlocked: Boolean,
+    onLockedCustom: () -> Unit,
     onPick: (Int) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -912,10 +929,10 @@ private fun ColorSwatchRow(
                         ),
                         RoundedCornerShape(8.dp),
                     )
-                    .selectable(selected = !isPreset, onClick = { showPicker = true }),
+                    .selectable(selected = !isPreset, onClick = { if (customUnlocked) showPicker = true else onLockedCustom() }),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("+", fontSize = 16.sp, color = Color.White)
+                Text(if (customUnlocked) "+" else "🔒", fontSize = 14.sp, color = Color.White)
             }
         }
     }
@@ -1164,7 +1181,9 @@ private fun TierEditor(
 @Composable
 private fun SkinRow(
     selected: ColorSkin,
+    unlocked: Boolean,
     onSelect: (ColorSkin) -> Unit,
+    onLocked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1183,6 +1202,7 @@ private fun SkinRow(
         ) {
             ColorSkin.entries.forEach { s ->
                 val active = s == selected
+                val locked = !com.netspeed.indicator.billing.FeatureGate.skinAllowed(s.ordinal, com.netspeed.indicator.billing.Entitlement(unlocked))
                 val swatch = if (s.heroColors.isNotEmpty()) s.heroColors.first() else s.accent
                 val scale by animateFloatAsState(
                     targetValue = if (active) 1.08f else 1f,
@@ -1197,7 +1217,7 @@ private fun SkinRow(
                             if (active) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceVariant,
                         )
-                        .selectable(selected = active, onClick = { onSelect(s) })
+                        .selectable(selected = active, onClick = { if (locked) onLocked() else onSelect(s) })
                         .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1209,7 +1229,7 @@ private fun SkinRow(
                     )
                     Spacer(Modifier.size(7.dp))
                     Text(
-                        s.label,
+                        if (locked) "🔒 ${s.label}" else s.label,
                         fontSize = 13.sp,
                         color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     )
@@ -1237,13 +1257,14 @@ private val WIDGET_STYLES = listOf(
  */
 @Composable
 private fun AddToHomeRow(
+    locked: Boolean,
     onPin: (com.netspeed.indicator.render.WidgetKind) -> Unit,
+    onLocked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val view = LocalView.current
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "Add to Home screen",
+            if (locked) "Add to Home screen 🔒" else "Add to Home screen",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.padding(start = 20.dp),
@@ -1260,12 +1281,12 @@ private fun AddToHomeRow(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .selectable(selected = false, onClick = { onPin(kind) })
+                        .selectable(selected = false, onClick = { if (locked) onLocked() else onPin(kind) })
                         .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Filled.Widgets,
+                        if (locked) Icons.Filled.Lock else Icons.Filled.Widgets,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(15.dp),
@@ -1276,7 +1297,8 @@ private fun AddToHomeRow(
             }
         }
         Text(
-            "Tap a style to drop it on your home screen, or long-press the home screen → Widgets → NetSpeed.",
+            if (locked) "Home widgets are part of the suite unlock — tap any style to unlock."
+            else "Tap a style to drop it on your home screen, or long-press the home screen → Widgets → NetSpeed.",
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
             modifier = Modifier.padding(start = 20.dp, top = 2.dp, end = 20.dp),
@@ -1288,7 +1310,9 @@ private fun AddToHomeRow(
 @Composable
 private fun LiveThemeRow(
     selected: HeroTheme,
+    unlocked: Boolean,
     onSelect: (HeroTheme) -> Unit,
+    onLocked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1307,6 +1331,7 @@ private fun LiveThemeRow(
         ) {
             HeroTheme.entries.forEach { theme ->
                 val active = theme == selected
+                val locked = !com.netspeed.indicator.billing.FeatureGate.themeAllowed(theme.ordinal, com.netspeed.indicator.billing.Entitlement(unlocked))
                 val scale by animateFloatAsState(
                     targetValue = if (active) 1.08f else 1f,
                     animationSpec = spring(dampingRatio = 0.45f, stiffness = 520f),
@@ -1320,11 +1345,11 @@ private fun LiveThemeRow(
                             if (active) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceVariant,
                         )
-                        .selectable(selected = active, onClick = { onSelect(theme) })
+                        .selectable(selected = active, onClick = { if (locked) onLocked() else onSelect(theme) })
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
                     Text(
-                        theme.label,
+                        if (locked) "🔒 ${theme.label}" else theme.label,
                         fontSize = 13.sp,
                         color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     )

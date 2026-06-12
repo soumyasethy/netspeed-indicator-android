@@ -19,7 +19,10 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.netspeed.indicator.BuildConfig
 import com.netspeed.indicator.NetSpeedApp
+import com.netspeed.indicator.billing.BillingManager
+import com.netspeed.indicator.billing.EntitlementStore
 import com.netspeed.indicator.data.SettingsRepository
 import com.netspeed.indicator.data.SpeedBus
 import com.netspeed.indicator.service.SpeedMeterService
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var repo: SettingsRepository
+    private lateinit var billing: BillingManager
 
     // Tracks the live POST_NOTIFICATIONS grant so the UI can show a banner / gate
     // the master switch. Recomputed in onResume (the user may toggle it in Settings).
@@ -48,6 +52,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         repo = SettingsRepository(applicationContext)
+        billing = BillingManager(
+            applicationContext,
+            (application as NetSpeedApp).appScope,
+            EntitlementStore(applicationContext),
+        ).also { it.start() }
         hasNotifPermission = notificationsAllowed()
 
         setContent {
@@ -59,6 +68,10 @@ class MainActivity : ComponentActivity() {
                 val dailyHistory by repo.dailyHistory.collectAsStateWithLifecycle(
                     initialValue = emptyList(),
                 )
+                val entitlement by billing.entitlement.collectAsStateWithLifecycle()
+                val priceSuite by billing.priceSuite.collectAsStateWithLifecycle()
+                val priceTip by billing.priceTip.collectAsStateWithLifecycle()
+                var showPaywall by remember { mutableStateOf(false) }
 
                 SettingsScreen(
                     settings = settings,
@@ -96,6 +109,8 @@ class MainActivity : ComponentActivity() {
                     onIconBorderColor = { c -> persist { repo.setIconBorderColor(c) } },
                     onIconBorderWidth = { w -> persist { repo.setIconBorderWidth(w) } },
                     onPinWidget = ::pinWidget,
+                    suiteUnlocked = entitlement.suiteUnlocked,
+                    onLockedTap = { showPaywall = true },
                     onThresholdsChange = { v -> persist { repo.setTierThresholds(v) } },
                     onNamesChange = { v -> persist { repo.setTierNames(v) } },
                     onQuotaChange = { v -> persist { repo.setDailyQuotaBytes(v) } },
@@ -103,6 +118,20 @@ class MainActivity : ComponentActivity() {
                     onRequestIgnoreBattery = ::requestIgnoreBatteryOptimizations,
                     onOpenNotificationSettings = ::openAppNotificationSettings,
                 )
+
+                if (showPaywall) {
+                    PaywallSheet(
+                        priceSuite = priceSuite,
+                        priceTip = priceTip,
+                        onUnlock = { billing.buySuite(this@MainActivity) },
+                        onTip = { billing.buyTip(this@MainActivity) },
+                        onRestore = { billing.restore() },
+                        onDismiss = { showPaywall = false },
+                        debugUnlock = if (BuildConfig.DEBUG) {
+                            { billing.debugSetUnlocked(true); showPaywall = false }
+                        } else null,
+                    )
+                }
             }
         }
     }
@@ -110,6 +139,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hasNotifPermission = notificationsAllowed()
+    }
+
+    override fun onDestroy() {
+        billing.release()
+        super.onDestroy()
     }
 
     // --- master switch flow ----------------------------------------------------

@@ -86,6 +86,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.billing.ktx)
 
     testImplementation(libs.junit)
 }
