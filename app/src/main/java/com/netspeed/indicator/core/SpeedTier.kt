@@ -38,11 +38,25 @@ object SpeedTiers {
         SpeedTier(4, "Blazing", TierIcon.FLAME, Color(0xFF7C3AED), Color(0xFFEC4899), "Don't blink"),
     )
 
-    /** Default tier boundaries in MB/s: [<1]=0, [1..5]=1, [5..15]=2, [15..30]=3, [>30]=4. */
-    val DEFAULT_THRESHOLDS = floatArrayOf(1f, 5f, 15f, 30f)
+    /**
+     * Default tier boundaries in MB/s, calibrated for REAL-WORLD connections
+     * (≈ 2.4 / 10 / 24 / 64 Mbps): typical 1–2 MB/s traffic crosses several
+     * tiers instead of idling forever in "Slow". The old 1/5/15/30 defaults
+     * assumed gigabit fiber — most users never saw a tier change. Users can
+     * still set their own in Tiers & limits.
+     */
+    val DEFAULT_THRESHOLDS = floatArrayOf(0.3f, 1.2f, 3f, 8f)
 
-    /** Tier center-points (MB/s) used to interpolate the gradient continuously. */
-    private val CENTERS = floatArrayOf(0.5f, 3f, 10f, 22f, 39f)
+    /** Tier center-points (MB/s) for continuous interpolation — derived from
+     *  the default boundaries so the gradient and the scene environment blends
+     *  track the same calibration. */
+    private val CENTERS = floatArrayOf(
+        DEFAULT_THRESHOLDS[0] / 2f,
+        (DEFAULT_THRESHOLDS[0] + DEFAULT_THRESHOLDS[1]) / 2f,
+        (DEFAULT_THRESHOLDS[1] + DEFAULT_THRESHOLDS[2]) / 2f,
+        (DEFAULT_THRESHOLDS[2] + DEFAULT_THRESHOLDS[3]) / 2f,
+        DEFAULT_THRESHOLDS[3] * 1.5f,
+    )
 
     /** Raw, stateless tier index for a speed given the (4) boundary thresholds. */
     fun rawIndex(speedMBps: Float, thresholds: FloatArray = DEFAULT_THRESHOLDS): Int {

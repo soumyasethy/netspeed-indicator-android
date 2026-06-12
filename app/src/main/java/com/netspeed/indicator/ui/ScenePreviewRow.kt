@@ -209,7 +209,12 @@ private fun Modifier.cellBorder(selected: Boolean): Modifier = border(
 )
 
 /** Idle demo drive: a slow sweep through all five tiers (~25 s loop). */
-private fun demoMbps(t: Float): Float = (sin(t * 0.25f) * 0.5f + 0.5f) * 46f + 1f
+private fun demoMbps(t: Float): Float {
+    // Quadratic sweep 0.05..14 MB/s: lingers in the real-world low tiers,
+    // still reaches the rocket era each ~25 s cycle.
+    val x = sin(t * 0.25f) * 0.5f + 0.5f
+    return 0.05f + x * x * 14f
+}
 
 private val BUILTINS = listOf(
     Triple("none", "—", "None"),

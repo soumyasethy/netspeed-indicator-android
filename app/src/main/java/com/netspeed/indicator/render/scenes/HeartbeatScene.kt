@@ -34,7 +34,7 @@ class HeartbeatScene : SpeedScene {
             canvas.drawRect(0f, 0f, w, h, paint)
         }
 
-        val crawling = s.mbps < 1f
+        val crawling = s.tier == 0
         val faint = if (crawling) 0.45f else 1f
         val bpm = 30f + sc * 150f
         var rate = bpm / 60f * TWO_PI                 // rad/sec

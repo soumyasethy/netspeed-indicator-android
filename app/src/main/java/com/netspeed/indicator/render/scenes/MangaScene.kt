@@ -43,7 +43,7 @@ class MangaScene : SpeedScene {
         }
 
         paint.style = Paint.Style.STROKE
-        if (s.mbps < 1f) {
+        if (s.tier == 0) {
             // Crawling: exactly 3–4 short droopy down-right strokes from a FIXED
             // seed — a calm, pathetic page with zero flicker.
             rng.reset(CRAWL_SEED)

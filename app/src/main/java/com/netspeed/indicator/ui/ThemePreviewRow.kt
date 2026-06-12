@@ -199,4 +199,9 @@ private fun ThemeCard(
 }
 
 /** Idle demo drive shared with the scene picker (~25 s tier sweep). */
-private fun demoSweep(t: Float): Float = (sin(t * 0.25f) * 0.5f + 0.5f) * 46f + 1f
+private fun demoSweep(t: Float): Float {
+    // Quadratic sweep 0.05..14 MB/s: lingers in the real-world low tiers,
+    // still reaches the rocket era each ~25 s cycle.
+    val x = sin(t * 0.25f) * 0.5f + 0.5f
+    return 0.05f + x * x * 14f
+}

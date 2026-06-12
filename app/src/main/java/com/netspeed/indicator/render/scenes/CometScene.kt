@@ -61,7 +61,7 @@ class CometScene : SpeedScene {
 
         // Velocity: gallery is px/frame at 60 fps in 208x70 ref space.
         var vel = (1f + sc * 5.5f) * 60f * k
-        if (s.mbps < 1f) vel *= 0.6f + 0.4f * sin(s.timeS * 3f)   // Crawling sputter
+        if (s.tier == 0) vel *= 0.6f + 0.4f * sin(s.timeS * 3f)   // Crawling sputter
 
         val margin = 30f * k
         if (s.dtS > 0f) {

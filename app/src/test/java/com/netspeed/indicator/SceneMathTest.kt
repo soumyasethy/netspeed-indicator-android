@@ -35,15 +35,15 @@ class SceneMathTest {
 
     @Test
     fun tierFrac_exactAtBounds() {
-        // Tier 0 spans 0..1 MB/s.
+        // Tier 0 spans 0..0.3 MB/s.
         assertEquals(0f, SpeedTiers.tierFrac(0f), 1e-4f)
-        assertEquals(0.5f, SpeedTiers.tierFrac(0.5f), 1e-4f)
-        // At exactly 1 MB/s we are IN tier 1 (rawIndex uses >=), frac restarts at 0.
-        assertEquals(0f, SpeedTiers.tierFrac(1f), 1e-4f)
-        // Tier 2 spans 5..15: 10 MB/s = halfway.
-        assertEquals(0.5f, SpeedTiers.tierFrac(10f), 1e-4f)
-        // Top tier spans 30..48 (ceiling); 39 = halfway; beyond ceiling clamps.
-        assertEquals(0.5f, SpeedTiers.tierFrac(39f), 1e-4f)
+        assertEquals(0.5f, SpeedTiers.tierFrac(0.15f), 1e-4f)
+        // At exactly 0.3 MB/s we are IN tier 1 (rawIndex uses >=), frac restarts at 0.
+        assertEquals(0f, SpeedTiers.tierFrac(0.3f), 1e-4f)
+        // Tier 2 spans 1.2..3: 2.1 MB/s = halfway.
+        assertEquals(0.5f, SpeedTiers.tierFrac(2.1f), 1e-4f)
+        // Top tier spans 8..48 (ceiling); 28 = halfway; beyond ceiling clamps.
+        assertEquals(0.5f, SpeedTiers.tierFrac(28f), 1e-4f)
         assertEquals(1f, SpeedTiers.tierFrac(60f), 1e-4f)
     }
 
@@ -59,11 +59,11 @@ class SceneMathTest {
     @Test
     fun tierProgress_endpointsAndMonotonic() {
         assertEquals(0f, SpeedTiers.tierProgress(0f), 1e-4f)
-        assertEquals(0f, SpeedTiers.tierProgress(0.5f), 1e-4f)
-        assertEquals(4f, SpeedTiers.tierProgress(39f), 1e-4f)
+        assertEquals(0f, SpeedTiers.tierProgress(0.15f), 1e-4f)
+        assertEquals(4f, SpeedTiers.tierProgress(12f), 1e-4f)
         assertEquals(4f, SpeedTiers.tierProgress(100f), 1e-4f)
-        // Center of tier 2 (10 MB/s) sits at exactly 2.0.
-        assertEquals(2f, SpeedTiers.tierProgress(10f), 1e-4f)
+        // Center of tier 2 (2.1 MB/s) sits at exactly 2.0.
+        assertEquals(2f, SpeedTiers.tierProgress(2.1f), 1e-4f)
         var prev = -1f
         var v = 0f
         while (v <= 48f) {
