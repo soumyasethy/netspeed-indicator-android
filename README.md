@@ -115,7 +115,20 @@ typeface and accent</sub>
 
 Pick a **theme** for the motion and a **skin** for the palette — they compose. A skin
 repaints the *whole* app in one identity: hero, chips, toggles, the home-screen widgets,
-even the status-bar chip. Six of the combinations:
+even the status-bar chip.
+
+**The 11 speed scenes lead the theme picker — every card plays its real animation:**
+
+<div align="center">
+
+<img src="docs/media/themes-scenes.gif" width="680"/><br>
+<sub>Journey · Comet · Heartbeat · Manga · Data river · Fireflies · Blob · Turbine ·
+Runner · Lightning jar · Tachometer — all driven by your live speed, on the hero,
+widgets, notification panel and bubble alike</sub>
+
+</div>
+
+**Six of the classic theme × skin combinations:**
 
 <div align="center">
 
