@@ -89,11 +89,15 @@ class MainActivity : ComponentActivity() {
                 val priceTip by billing.priceTip.collectAsStateWithLifecycle()
                 var showPaywall by remember { mutableStateOf(false) }
                 var showStudio by rememberSaveable { mutableStateOf(false) }
+                // adb replay hook: am start ... --ez debug_onboarding true
+                var onbPreview by rememberSaveable {
+                    mutableStateOf(intent?.getBooleanExtra("debug_onboarding", false) == true)
+                }
 
-                if (!settings.onboardingDone) {
+                if (!settings.onboardingDone || onbPreview) {
                     OnboardingScreen(
                         live = live,
-                        onDone = { persist { repo.setOnboardingDone() } },
+                        onDone = { onbPreview = false; persist { repo.setOnboardingDone() } },
                     )
                 } else if (showStudio) {
                     androidx.activity.compose.BackHandler { showStudio = false }
