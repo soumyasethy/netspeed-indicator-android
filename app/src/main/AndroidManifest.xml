@@ -123,6 +123,10 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <!-- HTC / some OEM variant of boot broadcast. -->
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <!-- App updates kill the service and START_STICKY does NOT bring
+                     it back after a package replace — without this, the indicator
+                     dies on every Play update until the app is reopened. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>
