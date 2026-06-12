@@ -144,9 +144,12 @@ class BubbleFxView(context: Context) : View(context) {
 
     private fun drawFlames(canvas: Canvas, pad: Float, c: Bitmap) {
         val t = timeMs / 1000f
-        val baseY = pad + c.height * 0.30f          // flames root behind the chip top
-        val maxH = pad * 1.6f * intensity
-        if (maxH < 1f) return
+        val baseY = pad + c.height * 0.25f          // flames root behind the chip top
+        // Tips must CLEAR the chip's top edge to be seen (the chip is drawn over
+        // the roots) — so the height budget includes the buried root segment and
+        // keeps a visible floor even at modest intensity.
+        val maxH = (pad + c.height * 0.25f) * (0.35f + 0.65f * intensity)
+        if (intensity < 0.02f) return
         fxPaint.style = Paint.Style.FILL
         val tongues = 7
         val span = c.width.toFloat()
