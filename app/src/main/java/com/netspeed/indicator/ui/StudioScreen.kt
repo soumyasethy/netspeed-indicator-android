@@ -3,6 +3,7 @@ package com.netspeed.indicator.ui
 import android.graphics.Typeface
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -35,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -45,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.launch
 import com.netspeed.indicator.billing.Entitlement
 import com.netspeed.indicator.billing.FeatureGate
 import com.netspeed.indicator.data.ColorSkin
@@ -112,6 +116,8 @@ fun StudioScreen(
     val clockFn = remember { { clock } }
     val liveMbps = if (live.running) live.downMBps else 0f
     val ent = Entitlement(suiteUnlocked)
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Fallback sample speeds so renderer cards always show something readable.
     val downBps = if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 1_258_291L
     val upBps = if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 245_760L
@@ -162,7 +168,36 @@ fun StudioScreen(
             }
         }
 
+        // Quick-jump chips: one tap to any category (indices match item order).
+        val jumps = listOf(
+            "🚀 Scenes" to 0, "🎬 Themes" to 12, "🎨 Skins" to 28, "🫧 Bubble" to 35,
+            "🔤 Fonts" to 53, "📟 Icon" to 58, "🔢 Units" to 64, "🏠 Widgets" to 68,
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
+        ) {
+            items(jumps.size) { i ->
+                val (label, idx) = jumps[i]
+                Text(
+                    label,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        .clickable {
+                            tap()
+                            scope.launch { gridState.animateScrollToItem(idx) }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                )
+            }
+        }
+
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(2),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -109,6 +109,8 @@ fun TierFlowHero(
     heroTextFormat: String = "classic",
     heroTextDX: Int = 0,
     heroTextDY: Int = 0,
+    collapseFrac: Float = 0f,
+    quotaBytes: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     val dark = isSystemInDarkTheme()
@@ -216,6 +218,11 @@ fun TierFlowHero(
                     // Theme ALWAYS drives the hero; skin only supplies the colours.
                     drawHeroBackground(theme, clock, smoothedMBps, gradColors, accent, dark)
                 }
+                // Folded strip: dim the diorama to a ghost so the compact
+                // readout owns the 132 dp — scene stays alive underneath.
+                if (collapseFrac > 0f) {
+                    drawRect(Color.Black.copy(alpha = (collapseFrac * 0.65f).coerceIn(0f, 0.65f)))
+                }
             },
         contentAlignment = contentAlign,
     ) {
@@ -229,7 +236,24 @@ fun TierFlowHero(
                 "  ·  p90 " + String.format("%.1f", p90f) + " MB/s" +
                 "  ·  jitter ±" + String.format("%.1f", jitf)
         } else null
-        Box(Modifier.padding(horizontal = if (textH == 0) 0.dp else 28.dp, vertical = if (textV == 0) 0.dp else 22.dp)) {
+        // Collapsed (folded) hero morphs into a compact one-row readout — the
+        // full text stack can't fit 132 dp without trampling the scene.
+        if (collapseFrac > 0.55f) {
+            CompactHeroRow(
+                tierWord = tierWord,
+                smoothedMBps = smoothedMBps,
+                live = live,
+                fg = fg,
+                quotaBytes = quotaBytes,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = ((collapseFrac - 0.55f) / 0.45f).coerceIn(0f, 1f) },
+            )
+        } else Box(
+            Modifier
+                .padding(horizontal = if (textH == 0) 0.dp else 28.dp, vertical = if (textV == 0) 0.dp else 22.dp)
+                .graphicsLayer { alpha = (1f - collapseFrac / 0.55f).coerceIn(0f, 1f) },
+        ) {
             when (theme) {
                 HeroTheme.TERMINAL ->
                     TerminalHero(tierWord, smoothedMBps, live, accent, history.toList())
@@ -777,4 +801,73 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBlob(
     val px = size.width * (0.5f + 0.32f * sin(clockSec * 0.15f * drift + seed))
     val py = size.height * (0.5f + 0.30f * cos(clockSec * 0.11f * drift + seed))
     drawCircle(color = Color.White.copy(alpha = alpha), radius = r, center = Offset(px, py))
+}
+
+/** Folded-hero readout: one row that always fits 132 dp — number + tier left,
+ *  today/quota ring right. The scene keeps playing behind it. */
+@Composable
+private fun CompactHeroRow(
+    tierWord: String,
+    smoothedMBps: Float,
+    live: LiveSpeed,
+    fg: Color,
+    quotaBytes: Long,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(horizontal = 24.dp),
+    ) {
+        Column {
+            val parts = SpeedFormatter.parts((smoothedMBps * 1_048_576).toLong())
+            Row(verticalAlignment = Alignment.Bottom) {
+                androidx.compose.material3.Text(
+                    parts.value, color = fg, fontSize = 32.sp, fontWeight = FontWeight.Black,
+                )
+                androidx.compose.material3.Text(
+                    " ${parts.unit}", color = fg.copy(alpha = 0.7f), fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            androidx.compose.material3.Text(
+                "$tierWord · ▲ ${SpeedFormatter.inline(live.upBytesPerSec)}",
+                color = fg.copy(alpha = 0.7f), fontSize = 11.sp,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        QuotaRing(todayBytes = live.todayBytes, quotaBytes = quotaBytes, fg = fg)
+    }
+}
+
+/** Tiny today/quota ring; with no quota set it shows today's total alone. */
+@Composable
+private fun QuotaRing(todayBytes: Long, quotaBytes: Long, fg: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (quotaBytes > 0) {
+            val frac = (todayBytes.toFloat() / quotaBytes).coerceIn(0f, 1f)
+            androidx.compose.foundation.Canvas(Modifier.size(40.dp)) {
+                drawArc(
+                    color = fg.copy(alpha = 0.18f), startAngle = -90f, sweepAngle = 360f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+                drawArc(
+                    color = if (frac < 0.9f) fg else Color(0xFFEF4444),
+                    startAngle = -90f, sweepAngle = 360f * frac, useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+            }
+            Spacer(Modifier.size(8.dp))
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            androidx.compose.material3.Text(
+                SpeedFormatter.total(todayBytes),
+                color = fg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            )
+            androidx.compose.material3.Text(
+                if (quotaBytes > 0) "of ${SpeedFormatter.total(quotaBytes)}" else "today",
+                color = fg.copy(alpha = 0.6f), fontSize = 10.sp,
+            )
+        }
+    }
 }

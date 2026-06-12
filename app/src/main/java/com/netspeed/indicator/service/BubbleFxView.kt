@@ -145,10 +145,18 @@ class BubbleFxView(context: Context) : View(context) {
         fillSceneState(dtMs)
     }
 
+    private var lastHapticTier = -1
+
     private fun fillSceneState(dtMs: Long) {
         sceneState.mbps = sceneShownMbps
         sceneState.sc = SpeedTiers.norm(sceneShownMbps)
         sceneState.tier = sceneTier.update(sceneShownMbps, dtMs).index
+        // The dopamine tick: one soft haptic when the committed tier shifts —
+        // the vehicle-swap moment, felt under the finger.
+        if (lastHapticTier >= 0 && sceneState.tier != lastHapticTier) {
+            performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+        }
+        lastHapticTier = sceneState.tier
         sceneState.tierFrac = SpeedTiers.tierFrac(sceneShownMbps, thresholds)
         sceneState.tierProgress = SpeedTiers.tierProgress(sceneShownMbps)
         sceneState.accentArgb = SpeedTiers.blendAccentArgb(sceneShownMbps)

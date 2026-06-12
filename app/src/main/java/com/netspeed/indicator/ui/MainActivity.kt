@@ -90,7 +90,12 @@ class MainActivity : ComponentActivity() {
                 var showPaywall by remember { mutableStateOf(false) }
                 var showStudio by rememberSaveable { mutableStateOf(false) }
 
-                if (showStudio) {
+                if (!settings.onboardingDone) {
+                    OnboardingScreen(
+                        live = live,
+                        onDone = { persist { repo.setOnboardingDone() } },
+                    )
+                } else if (showStudio) {
                     androidx.activity.compose.BackHandler { showStudio = false }
                     val suiteUnlockedNow = entitlement.suiteUnlocked ||
                         !com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED

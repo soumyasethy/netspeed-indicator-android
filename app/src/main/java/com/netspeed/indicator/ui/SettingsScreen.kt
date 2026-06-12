@@ -44,11 +44,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -239,6 +241,8 @@ fun SettingsScreen(
             heroTextFormat = settings.heroTextFormat,
             heroTextDX = settings.heroTextDX,
             heroTextDY = settings.heroTextDY,
+            collapseFrac = if (collapseRangePx > 0f) heroCollapsePx / collapseRangePx else 0f,
+            quotaBytes = settings.dailyQuotaBytes,
             modifier = Modifier.height(liveHeroHeight),
         )
     Column(
@@ -320,6 +324,10 @@ fun SettingsScreen(
             )
 
             Hairline()
+            SectionFold(
+                title = "📟 Status-bar icon",
+                subtitle = "Style · colours · units · panel & idle behaviour",
+            ) {
             IconStyleCard(
                 selected = settings.iconStyle,
                 showCombined = settings.showCombined,
@@ -366,6 +374,15 @@ fun SettingsScreen(
                 onCheckedChange = { tap(); onAutoHideToggle(it) },
                 tierColor = tierColor,
             )
+            }
+
+            Hairline()
+            SectionFold(
+                title = "🫧 Floating bubble",
+                subtitle = if (settings.floatingChip && suiteUnlocked) "On — draggable chip over any app"
+                else "Off — expand to set up",
+                defaultOpen = settings.floatingChip && suiteUnlocked,
+            ) {
             ToggleRow(
                 title = if (suiteUnlocked) "Floating speed bubble" else "Floating speed bubble 🔒",
                 subtitle = if (suiteUnlocked)
@@ -505,6 +522,7 @@ fun SettingsScreen(
                     )
                 }
             }
+            }
 
             Hairline()
             UsageHistorySection(history = dailyHistory)
@@ -518,13 +536,17 @@ fun SettingsScreen(
             )
 
             Hairline()
+            SectionFold(
+                title = "🛟 Help & reliability",
+                subtitle = "Icon not showing · battery exemptions",
+                defaultOpen = false,
+            ) {
             VisibilityCard(onOpenNotificationSettings = onOpenNotificationSettings)
-
-            Hairline()
             BatterySection(
                 isIgnoring = isIgnoringBatteryOptimizations,
                 onRequestIgnoreBattery = onRequestIgnoreBattery,
             )
+            }
 
             Hairline()
             AboutSection()
@@ -606,6 +628,48 @@ private fun UsageHistorySection(history: List<com.netspeed.indicator.data.DayUsa
 }
 
 /** Single 1dp separator at 12% foreground alpha — the only divider in the design. */
+/**
+ * Collapsible settings group: tappable header (title + one-line state summary +
+ * chevron) folding its content with AnimatedVisibility. Keeps the long page
+ * scannable; open state survives rotation via rememberSaveable.
+ */
+@Composable
+private fun SectionFold(
+    title: String,
+    subtitle: String,
+    defaultOpen: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    var open by rememberSaveable(title) { mutableStateOf(defaultOpen) }
+    val view = LocalView.current
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    open = !open
+                }
+                .padding(vertical = 6.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = subtitle,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                )
+            }
+            Text(if (open) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        }
+        AnimatedVisibility(visible = open) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+        }
+    }
+}
+
 @Composable
 private fun Hairline() {
     Box(

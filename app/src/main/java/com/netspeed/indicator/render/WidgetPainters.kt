@@ -180,7 +180,7 @@ object WidgetPainters {
         c.clipPath(clip)
         val fg = if (d.heroFgArgb != 0) d.heroFgArgb else white
         val fg60 = (fg and 0x00FFFFFF) or (0x99 shl 24)
-        sceneScrim(c, wf, hf)
+        sceneScrim(c, wf, hf, d.textH, d.textV)
         heroTexts(c, w, h, d, fg, fg60, sparkline = false, hPos = d.textH, vPos = d.textV)
         c.restore()
         return bmp
@@ -207,7 +207,7 @@ object WidgetPainters {
             // bubble animate (RemoteViews can't animate; the flip-book layout
             // cycles 8 of these launcher-side). Scrim keeps text legible.
             drawSceneMotif(c, wf, hf, d, sceneEntry, sceneTimeS)
-            sceneScrim(c, wf, hf)
+            sceneScrim(c, wf, hf, d.textH, d.textV)
             heroTexts(c, w, h, d, fg, fg60, sparkline = false, hPos = d.textH, vPos = d.textV)
         } else when (d.themeKey) {
             "kinetic" -> {                       // calm gradient, nothing but the number
@@ -384,13 +384,34 @@ object WidgetPainters {
         scene.render(c, wf, hf, sceneState)
     }
 
-    /** Left + top gradients under [heroTexts] so the number/today never fight the scene. */
-    private fun sceneScrim(c: Canvas, wf: Float, hf: Float) {
+    /** Scrim under [heroTexts] that FOLLOWS the text anchor — shading the side
+     *  and band the text actually occupies, so no placement ever fights the
+     *  scene (a fixed left scrim left right-anchored text unprotected). */
+    private fun sceneScrim(c: Canvas, wf: Float, hf: Float, hPos: Int = -1, vPos: Int = 0) {
         val p = Paint()
-        p.shader = LinearGradient(0f, 0f, wf * 0.65f, 0f, 0xA6000000.toInt(), 0, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, wf * 0.65f, hf, p)
+        when (hPos) {
+            1 -> {
+                p.shader = LinearGradient(wf, 0f, wf * 0.35f, 0f, 0xA6000000.toInt(), 0, Shader.TileMode.CLAMP)
+                c.drawRect(wf * 0.35f, 0f, wf, hf, p)
+            }
+            0 -> {
+                p.shader = LinearGradient(wf * 0.5f, 0f, wf * 0.08f, 0f, 0x8C000000.toInt(), 0, Shader.TileMode.CLAMP)
+                c.drawRect(wf * 0.08f, 0f, wf * 0.5f, hf, p)
+                p.shader = LinearGradient(wf * 0.5f, 0f, wf * 0.92f, 0f, 0x8C000000.toInt(), 0, Shader.TileMode.CLAMP)
+                c.drawRect(wf * 0.5f, 0f, wf * 0.92f, hf, p)
+            }
+            else -> {
+                p.shader = LinearGradient(0f, 0f, wf * 0.65f, 0f, 0xA6000000.toInt(), 0, Shader.TileMode.CLAMP)
+                c.drawRect(0f, 0f, wf * 0.65f, hf, p)
+            }
+        }
+        // Top strip protects the pinned "today"; bottom strip when text sits low.
         p.shader = LinearGradient(0f, 0f, 0f, hf * 0.25f, 0x73000000, 0, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, wf, hf * 0.25f, p)
+        if (vPos == 1) {
+            p.shader = LinearGradient(0f, hf, 0f, hf * 0.7f, 0x73000000, 0, Shader.TileMode.CLAMP)
+            c.drawRect(0f, hf * 0.7f, wf, hf, p)
+        }
     }
 
     private fun heroTexts(
@@ -403,6 +424,13 @@ object WidgetPainters {
         val rightEdge = w - w * 0.06f
         val vOff = h * 0.15f * vPos + h * d.textDY / 100f   // grid spot + fine nudge
         val dxOff = w * d.textDX / 100f
+        // Scene dioramas put bright props anywhere; a soft drop shadow keeps
+        // every glyph readable even where the scrim has faded out.
+        val sceneBg = com.netspeed.indicator.render.scenes.SceneRegistry.isScene(d.themeKey)
+        fun Paint.shadowed(): Paint {
+            if (sceneBg) setShadowLayer(h * 0.035f, 0f, h * 0.01f, 0xCC000000.toInt())
+            return this
+        }
         // Horizontal anchor for the whole block: left edge / centred / right edge.
         fun originX(width: Float): Float = (when (hPos) {
             0 -> (w - width) / 2f
@@ -410,14 +438,14 @@ object WidgetPainters {
             else -> pad
         } + dxOff).coerceIn(w * 0.01f, (w - width).coerceAtLeast(w * 0.01f))
         fun drawLine(s: String, sizeFrac: Float, y: Float, paintFg: Int, bold: Boolean = false, mono: Boolean = false): Float {
-            val p = text(h * sizeFrac, paintFg, bold = bold, align = Paint.Align.LEFT)
+            val p = text(h * sizeFrac, paintFg, bold = bold, align = Paint.Align.LEFT).shadowed()
             if (mono) p.typeface = Typeface.MONOSPACE
             c.drawText(s, originX(p.measureText(s)), y, p)
             return p.measureText(s)
         }
 
         if (fmt != com.netspeed.indicator.data.TextFormat.ZEN) {
-            val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT)
+            val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT).shadowed()
             val todayText = "${SpeedFormatter.total(d.todayBytes)} today"
             c.drawText(todayText, rightEdge, h * 0.18f, todayPaint)
             if (leftFrac <= 0.06f && hPos == -1 && vPos != -1 &&
@@ -474,15 +502,15 @@ object WidgetPainters {
         // Number-led formats share the auto-fit number row.
         val num = SpeedFormatter.parts(d.downBps)
         val zen = fmt == com.netspeed.indicator.data.TextFormat.ZEN
-        var numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
-        var unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
+        var numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT).shadowed()
+        var unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT).shadowed()
         val avail = rightEdge - pad
         val unitW = if (zen) 0f else w * 0.02f + unitPaint.measureText(num.unit)
         var rowW = numPaint.measureText(num.value) + unitW
         if (rowW > avail) {
             val s = avail / rowW
-            numPaint = text(h * 0.34f * s, fg, bold = true, align = Paint.Align.LEFT)
-            unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT)
+            numPaint = text(h * 0.34f * s, fg, bold = true, align = Paint.Align.LEFT).shadowed()
+            unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT).shadowed()
             rowW = avail
         }
         val numY = (h * 0.56f + vOff).coerceIn(h * 0.34f, h * 0.72f)
