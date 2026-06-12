@@ -42,7 +42,7 @@ class MangaScene : SpeedScene {
         // Screentone — the halftone-dot shading every manga page carries. Two
         // corner fades keep the panel rich even when nothing else moves.
         paint.style = Paint.Style.FILL
-        screentone(canvas, w, h, k, ink)
+        screentone(canvas, w, h, k, ink, s.timeS)
 
         if (s.dtS > 0f) {
             if (prevTier >= 0 && s.tier != prevTier) flashFrames = 2   // impact frame
@@ -51,9 +51,22 @@ class MangaScene : SpeedScene {
 
         paint.style = Paint.Style.STROKE
         if (s.tier == 0) {
+            // Lazy ink sweep: seven long faint strokes slowly orbiting the dot
+            // — unmistakable idle motion (the droop alone read as frozen).
+            val base = s.timeS * 0.35f
+            for (i in 0 until 7) {
+                val a = base + i * (TWO_PI / 7f)
+                val l0 = (16f + 3f * sin(s.timeS * 0.7f + i)) * k
+                val l1 = (30f + 8f * sin(s.timeS * 0.5f + i * 2f)) * k
+                paint.color = argbWithAlpha(ink, 0.10f + 0.05f * sin(s.timeS + i))
+                paint.strokeWidth = 1f * k
+                canvas.drawLine(
+                    cx + cos(a) * l0, cy + sin(a) * l0 * 0.5f,
+                    cx + cos(a) * (l0 + l1), cy + sin(a) * (l0 + l1) * 0.5f, paint,
+                )
+            }
             // Crawling: 3–4 droopy down-right strokes (the manga idiom for
-            // pathetic) — but ALIVE: they sag on a slow sine and the ink
-            // breathes, so idle never reads as a frozen frame.
+            // pathetic) — sagging on a slow sine with breathing ink.
             rng.reset(CRAWL_SEED)
             val n = 3 + if (rng.next() < 0.5f) 0 else 1
             val breathe = 0.8f + 0.2f * sin(s.timeS * 0.9f)
@@ -101,7 +114,7 @@ class MangaScene : SpeedScene {
             rng.next()
             sh = (rng.next() - 0.5f) * 2.5f * k
         }
-        val pulse = 1f + 0.05f * sin(s.timeS * 2.1f)
+        val pulse = 1f + 0.09f * sin(s.timeS * 2.1f)
         val r = (9f + sc * 4f) * k * pulse
         paint.style = Paint.Style.FILL
         paint.color = s.accentArgb
@@ -121,7 +134,7 @@ class MangaScene : SpeedScene {
     }
 
     /** Halftone shading fading out of the top-right and bottom-left corners. */
-    private fun screentone(canvas: Canvas, w: Float, h: Float, k: Float, ink: Int) {
+    private fun screentone(canvas: Canvas, w: Float, h: Float, k: Float, ink: Int, timeS: Float) {
         val step = 7f * k
         val r = 1.1f * k
         var row = 0
@@ -131,7 +144,7 @@ class MangaScene : SpeedScene {
             if (reach <= 0f) break
             var x = w - step / 2f - (row % 2) * step / 2f
             while (x > w - reach) {
-                paint.color = argbWithAlpha(ink, 0.10f)
+                paint.color = argbWithAlpha(ink, 0.08f + 0.05f * sin(timeS * 1.3f + row))
                 canvas.drawCircle(x, y, r, paint)
                 x -= step
             }

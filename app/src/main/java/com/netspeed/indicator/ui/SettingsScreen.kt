@@ -193,11 +193,14 @@ fun SettingsScreen(
             skin = skin,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
-        StudioEntryCard(
+        InlineThemesRow(
             settings = settings,
             live = live,
-            onOpen = { tap(); onOpenStudio() },
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            suiteUnlocked = suiteUnlocked,
+            onThemeSelect = { tap(); onThemeSelect(it) },
+            onLockedTap = onLockedTap,
+            onOpenStudio = { tap(); onOpenStudio() },
+            modifier = Modifier.padding(vertical = 8.dp),
         )
         if (settings.heroTheme.isScene) {
             // Scene themes: keep the number OFF the diorama's focal point.
@@ -1783,15 +1786,18 @@ private fun AboutSection() {
 }
 
 /**
- * Gateway to the Style Studio: three live mini-canvases (current theme, skin,
- * bubble scene) + the pitch. Replaces the in-page theme/skin rows — the studio
- * is the marketplace; this card is its storefront window.
+ * Inline theme shelf: the first six speed scenes as LIVE cards right on the
+ * settings page, with a "View all" card opening the Style Studio — best of
+ * both: instant browsing here, the full marketplace one tap away.
  */
 @Composable
-private fun StudioEntryCard(
+private fun InlineThemesRow(
     settings: Settings,
     live: LiveSpeed,
-    onOpen: () -> Unit,
+    suiteUnlocked: Boolean,
+    onThemeSelect: (HeroTheme) -> Unit,
+    onLockedTap: () -> Unit,
+    onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = com.netspeed.indicator.ui.hero.rememberReducedMotion()
@@ -1816,43 +1822,75 @@ private fun StudioEntryCard(
     }
     val clockFn = remember { { clock } }
     val liveMbps = if (live.running) live.downMBps else 0f
-    val sceneEntry = com.netspeed.indicator.render.scenes.SceneRegistry.ALL.firstOrNull {
-        it.id == settings.bubbleFx
-    } ?: com.netspeed.indicator.render.scenes.SceneRegistry.fromThemeKey(settings.heroTheme.storageKey)
-    ?: com.netspeed.indicator.render.scenes.SceneRegistry.ALL.first()
+    val shelf = remember { HeroTheme.entries.filter { it.isScene }.take(6) }
+    val total = HeroTheme.entries.size
+    val ent = com.netspeed.indicator.billing.Entitlement(suiteUnlocked)
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .clickable(onClick = onOpen)
-            .padding(12.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
-                com.netspeed.indicator.ui.ThemeCanvas(settings.heroTheme, settings.colorSkin, clockFn, liveMbps)
-            }
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
-                com.netspeed.indicator.ui.SkinCanvas(
-                    settings.colorSkin,
-                    if (settings.heroTheme.isScene) HeroTheme.TIER_FLOW else settings.heroTheme,
-                    clockFn, liveMbps,
-                )
-            }
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
-                com.netspeed.indicator.ui.SceneCanvas(sceneEntry, clockFn, liveMbps, dark = true)
-            }
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text("🛍 Style Studio", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        ) {
             Text(
-                "26 themes · 6 skins · bubble styles · widgets — every card live",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                "Live themes",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "View all $total ›",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onOpenStudio)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
-        Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+        ) {
+            items(shelf.size) { i ->
+                val theme = shelf[i]
+                val locked = !com.netspeed.indicator.billing.FeatureGate.themeAllowed(theme.ordinal, ent)
+                val entry = com.netspeed.indicator.render.scenes.SceneRegistry.fromThemeKey(theme.storageKey)
+                Box(Modifier.width(116.dp)) {
+                    com.netspeed.indicator.ui.StudioCardFrame(
+                        selected = settings.heroTheme == theme,
+                        locked = locked,
+                        label = "${entry?.emoji ?: ""} ${theme.label}",
+                        previewHeight = 64.dp,
+                        onClick = { if (locked) onLockedTap() else onThemeSelect(theme) },
+                    ) { com.netspeed.indicator.ui.ThemeCanvas(theme, settings.colorSkin, clockFn, liveMbps) }
+                }
+            }
+            item {
+                Box(Modifier.width(116.dp)) {
+                    com.netspeed.indicator.ui.StudioCardFrame(
+                        selected = false,
+                        locked = false,
+                        label = "Style Studio",
+                        previewHeight = 64.dp,
+                        onClick = onOpenStudio,
+                    ) {
+                        Box(
+                            Modifier.fillMaxSize().background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f),
+                                    ),
+                                ),
+                            ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("+${total - 6}\nView all", fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
