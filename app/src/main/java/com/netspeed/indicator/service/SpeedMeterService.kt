@@ -575,6 +575,8 @@ class SpeedMeterService : LifecycleService() {
             showDetails = settings.showInPanel,
             gradientArgb = skinGradientArgb(),
             flowPhase = com.netspeed.indicator.core.GradientFlow.phase(System.currentTimeMillis()),
+            themeKey = settings.heroTheme.storageKey,
+            tierThresholds = settings.tierThresholds,
         )
     }
 

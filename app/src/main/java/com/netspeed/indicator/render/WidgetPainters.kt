@@ -105,6 +105,32 @@ object WidgetPainters {
         }
     }
 
+    /**
+     * Scene frame for the EXPANDED NOTIFICATION card (re-rendered each second by
+     * the existing notify tick — the panel plays the scene at 1 fps like the
+     * pre-flip-book widgets). Null when the theme isn't a scene → the gemini
+     * gradient card applies as before.
+     */
+    fun sceneCard(
+        w: Int, h: Int, themeKey: String, downBps: Long,
+        thresholds: List<Float>, cornerPx: Float,
+    ): Bitmap? {
+        val entry = SceneRegistry.fromThemeKey(themeKey) ?: return null
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val wf = w.toFloat()
+        val hf = h.toFloat()
+        val clip = Path().apply {
+            addRoundRect(RectF(0f, 0f, wf, hf), cornerPx, cornerPx, Path.Direction.CW)
+        }
+        c.save()
+        c.clipPath(clip)
+        drawSceneMotif(c, wf, hf, WidgetData(downBps = downBps, tierThresholds = thresholds), entry)
+        sceneScrim(c, wf, hf)
+        c.restore()
+        return bmp
+    }
+
     /** Full-resolution transparent overlay for the flip-book: scrim + texts. */
     fun renderHeroOverlay(w: Int, h: Int, d: WidgetData): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)

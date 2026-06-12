@@ -190,14 +190,16 @@ fun SettingsScreen(
             skin = skin,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
-        LiveThemeRow(
+        ThemePreviewRow(
             selected = settings.heroTheme,
+            skin = skin,
+            live = live,
             unlocked = suiteUnlocked,
             onSelect = { tap(); onThemeSelect(it) },
             onLocked = onLockedTap,
             modifier = Modifier.padding(bottom = 6.dp),
         )
-        SkinRow(
+        SkinPreviewRow(
             selected = settings.colorSkin,
             unlocked = suiteUnlocked,
             onSelect = { tap(); onSkinSelect(it) },

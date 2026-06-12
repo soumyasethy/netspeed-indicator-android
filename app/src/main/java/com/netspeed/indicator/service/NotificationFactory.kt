@@ -63,6 +63,9 @@ class NotificationFactory(private val context: Context) {
         /** Expanded-card gradient (skin colours, or brand trio) + flow phase. */
         val gradientArgb: List<Int> = emptyList(),
         val flowPhase: Float = 0f,
+        /** Hero theme key — scene themes paint the expanded card with the scene. */
+        val themeKey: String = "",
+        val tierThresholds: List<Float> = listOf(1f, 5f, 15f, 30f),
     )
 
     fun build(content: Content): Notification {
@@ -115,9 +118,14 @@ class NotificationFactory(private val context: Context) {
     private fun buildExpandedView(content: Content): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.notification_expanded)
 
-        // Flowing gradient card background — re-rendered each second with the
-        // advancing phase, so the colours visibly drift (gemini animation).
-        rv.setImageViewBitmap(R.id.notif_bg, gradientCard(content))
+        // Card background, re-rendered each second: scene themes play their
+        // diorama right in the panel (1 fps via the notify tick); classic
+        // themes keep the flowing gemini gradient.
+        val r = 14f * context.resources.displayMetrics.density * (600f / 600f)
+        val sceneBg = com.netspeed.indicator.render.WidgetPainters.sceneCard(
+            600, 220, content.themeKey, content.downBps, content.tierThresholds, r,
+        )
+        rv.setImageViewBitmap(R.id.notif_bg, sceneBg ?: gradientCard(content))
 
         rv.setTextViewText(R.id.notif_number, SpeedFormatter.inline(content.downBps))
 
