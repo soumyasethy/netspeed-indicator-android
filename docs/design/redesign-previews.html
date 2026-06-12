@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSpeed · App redesign directions — pick one</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#0a0d16; color:#eef1f8; padding:28px 18px 80px; }
+  h1 { font-size:20px; letter-spacing:-.3px; }
+  .sub { color:#8a92a6; font-size:13px; margin:6px 0 22px; max-width:880px; line-height:1.5; }
+  .sub b { color:#c9cfdd; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:26px; max-width:1400px; }
+  .card { background:#10141f; border:1px solid #232a3d; border-radius:18px; padding:16px; }
+  .card h2 { font-size:15px; display:flex; align-items:center; gap:8px; }
+  .tag { font-size:10px; padding:2px 8px; border-radius:99px; background:#1c2336; color:#9aa3b8; }
+  .desc { font-size:11.5px; color:#7d8599; line-height:1.5; margin:6px 0 12px; min-height:64px; }
+  .desc b { color:#aab3c5; }
+  .phone { width:100%; max-width:280px; aspect-ratio:9/19; margin:0 auto; border-radius:26px;
+    border:2px solid #2a3145; overflow:hidden; position:relative; background:#000; }
+  .screen { position:absolute; inset:0; overflow-y:scroll; scrollbar-width:none; }
+  .screen::-webkit-scrollbar{ display:none; }
+  .toggle { margin:10px auto 0; display:flex; justify-content:center; gap:8px; }
+  .toggle button { font-size:11px; color:#eef1f8; background:#1c2336; border:1px solid #2c3550;
+    border-radius:99px; padding:5px 12px; cursor:pointer; }
+  .toggle button.on { background:#2c3a66; border-color:#42549a; }
+  .hint{ font-size:11px; color:#5d6678; text-align:center; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>NetSpeed redesign — 4 living directions</h1>
+<p class="sub">Each phone is a <b>live mockup</b>: the hero animates with a fake speed feed, and the
+<b>background reacts as you scroll inside the phone</b> (drag/scroll the screens!). Toggle ☀/🌙 per
+direction. All four are pure Canvas/Compose-feasible — no assets, app stays <b>&lt;4 MB</b>.
+Haptic notes describe where vibration ticks fire on-device.</p>
+
+<div class="grid" id="grid"></div>
+
+<script>
+(function(){
+const DIRS = [
+ {id:'hud', name:'A · NEON HUD', tag:'gaming telemetry',
+  desc:'<b>F1-telemetry meets cyberpunk.</b> Carbon-dark base, neon cyan/magenta edge glow, speed ring hero with scanline shimmer, chamfered stat tiles. Scrolling drives a parallax grid floor + section headers that power up with a glow sweep. Haptics: tick on every section snap, double-tick on tier change.',
+  light:{bg:'#e8ecf4', card:'#ffffff', ink:'#0c1018', accent:'#0891b2', accent2:'#db2777'},
+  dark:{bg:'#05070d', card:'#0c1220', ink:'#e6f3ff', accent:'#22d3ee', accent2:'#f0abfc'}},
+ {id:'aurora', name:'B · AURORA GLASS', tag:'premium glass',
+  desc:'<b>Frosted premium.</b> A mesh gradient breathes behind everything and <b>rotates hue as you scroll</b>; cards are blurred glass with 1px light borders, controls spring on touch. Feels expensive, calm, alive. Haptics: soft tick each 25% scroll, spring-pop on toggles.',
+  light:{bg:'#f4f2fb', card:'rgba(255,255,255,.65)', ink:'#191726', accent:'#7c3aed', accent2:'#ec4899'},
+  dark:{bg:'#0d0b18', card:'rgba(30,28,52,.55)', ink:'#f0edff', accent:'#a78bfa', accent2:'#f472b6'}},
+ {id:'carbon', name:'C · VELOCITY CARBON', tag:'racing garage',
+  desc:'<b>Racing-game garage.</b> Carbon weave + amber/red, tachometer hero with italic display digits, gear-shift section headers (N·1·2·3…), speed-lines sweep across on every scroll flick. Haptics: gear-clunk on section change, redline buzz at Blazing.',
+  light:{bg:'#f1efe9', card:'#ffffff', ink:'#16130e', accent:'#ea580c', accent2:'#dc2626'},
+  dark:{bg:'#0b0907', card:'#161210', ink:'#f5efe6', accent:'#fb923c', accent2:'#f87171'}},
+ {id:'pulse', name:'D · PULSE MINIMAL', tag:'alive minimal',
+  desc:'<b>Linear/Vercel-grade minimalism that breathes.</b> Near-mono canvas, ONE living gradient orb that is the speed (size/heat = MB/s), oversized numerals, hairline cards. Scroll slides the orb + shifts its hue; nothing else moves — restraint IS the premium. Haptics: single soft tick per card landing.',
+  light:{bg:'#fafafa', card:'#ffffff', ink:'#111114', accent:'#6366f1', accent2:'#06b6d4'},
+  dark:{bg:'#09090b', card:'#131316', ink:'#f4f4f5', accent:'#818cf8', accent2:'#22d3ee'}},
+];
+
+let speed=12, target=12;
+setInterval(()=>{ target=Math.max(.3,Math.min(46,target+(Math.random()-.46)*9)); },1600);
+
+const grid=document.getElementById('grid');
+DIRS.forEach(d=>{
+ const card=document.createElement('div'); card.className='card';
+ card.innerHTML=`<h2>${d.name} <span class="tag">${d.tag}</span></h2>
+  <div class="desc">${d.desc}</div>
+  <div class="phone"><div class="screen" id="scr-${d.id}">
+    <canvas id="cv-${d.id}" style="position:sticky;top:0;width:100%;height:100%;display:block"></canvas>
+    <div style="height:260%"></div>
+  </div></div>
+  <div class="toggle">
+    <button id="dk-${d.id}" class="on">🌙 Dark</button>
+    <button id="lt-${d.id}">☀ Light</button>
+  </div>
+  <div class="hint">scroll inside the phone ↑↓</div>`;
+ grid.appendChild(card);
+});
+
+function lerp(a,b,t){return a+(b-a)*t}
+function hexToRgb(h){const n=parseInt(h.replace('#',''),16);return[n>>16,n>>8&255,n&255]}
+function mix(c1,c2,t){const a=hexToRgb(c1),b=hexToRgb(c2);return`rgb(${a.map((v,i)=>Math.round(lerp(v,b[i],t))).join(',')})`}
+
+DIRS.forEach(d=>{
+ const cv=document.getElementById('cv-'+d.id), scr=document.getElementById('scr-'+d.id);
+ const ctx=cv.getContext('2d');
+ let dark=true, t=0, sp=12, scroll=0;
+ scr.addEventListener('scroll',()=>{ scroll=scr.scrollTop/(scr.scrollHeight-scr.clientHeight); });
+ document.getElementById('dk-'+d.id).onclick=e=>{dark=true;sw(e.target)};
+ document.getElementById('lt-'+d.id).onclick=e=>{dark=false;sw(e.target)};
+ function sw(btn){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+
+ function frame(){
+  const W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==W*2){cv.width=W*2;cv.height=H*2;}
+  ctx.setTransform(2,0,0,2,0,0);
+  t+=.016; sp+=(target-sp)*.05;
+  const sc=Math.min(1,sp/48), th=d[dark?'dark':'light'];
+  ctx.fillStyle=th.bg; ctx.fillRect(0,0,W,H);
+
+  if(d.id==='hud'){
+   // parallax grid floor driven by scroll
+   ctx.strokeStyle=dark?'rgba(34,211,238,.12)':'rgba(8,145,178,.15)'; ctx.lineWidth=1;
+   const horizon=H*.42+scroll*H*.2;
+   for(let i=0;i<10;i++){const y=horizon+Math.pow(i/10,1.7)*(H-horizon);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+   for(let i=-6;i<=6;i++){ctx.beginPath();ctx.moveTo(W/2+i*14,horizon);ctx.lineTo(W/2+i*70,H);ctx.stroke();}
+   // speed ring hero
+   const cy=H*.23-scroll*H*.12, r=Math.min(W,H)*.18;
+   ctx.lineWidth=7;ctx.strokeStyle=dark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
+   ctx.beginPath();ctx.arc(W/2,cy,r,Math.PI*.75,Math.PI*2.25);ctx.stroke();
+   const g=ctx.createLinearGradient(W/2-r,0,W/2+r,0);g.addColorStop(0,th.accent);g.addColorStop(1,th.accent2);
+   ctx.strokeStyle=g;ctx.shadowColor=th.accent;ctx.shadowBlur=14;
+   ctx.beginPath();ctx.arc(W/2,cy,r,Math.PI*.75,Math.PI*(.75+1.5*sc));ctx.stroke();ctx.shadowBlur=0;
+   ctx.fillStyle=th.ink;ctx.font='800 26px sans-serif';ctx.textAlign='center';
+   ctx.fillText(sp.toFixed(1),W/2,cy+8);
+   ctx.font='600 9px sans-serif';ctx.fillStyle=th.accent;ctx.fillText('MB/S — STEADY',W/2,cy+22);
+   // scanline shimmer
+   const sy=(t*60)%H;ctx.fillStyle=dark?'rgba(34,211,238,.05)':'rgba(8,145,178,.05)';ctx.fillRect(0,sy,W,2);
+   tiles(ctx,W,H*.52-scroll*H*.1,th,dark,2,true);
+  }
+
+  if(d.id==='aurora'){
+   // hue-rotating mesh driven by scroll
+   const hue=scroll*120;
+   for(let i=0;i<3;i++){
+    const bx=W*(.3+.4*Math.sin(t*.3+i*2.1)), by=H*(.25+.5*Math.cos(t*.23+i*1.7))-scroll*H*.25;
+    const rg=ctx.createRadialGradient(bx,by,0,bx,by,W*.6);
+    rg.addColorStop(0,`hsla(${(260+hue+i*40)%360},80%,${dark?60:70}%,${dark?.25:.4})`);
+    rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);}
+   // glass hero card
+   glass(ctx,W*.07,H*.07-scroll*H*.1,W*.86,H*.3,16,th,dark);
+   ctx.fillStyle=th.ink;ctx.font='800 30px sans-serif';ctx.textAlign='center';
+   ctx.fillText(sp.toFixed(1)+'',W/2,H*.2-scroll*H*.1);
+   ctx.font='500 10px sans-serif';ctx.fillStyle=dark?'rgba(240,237,255,.6)':'rgba(25,23,38,.6)';
+   ctx.fillText('MB/s · flowing',W/2,H*.24-scroll*H*.1);
+   tiles(ctx,W,H*.45-scroll*H*.12,th,dark,3,false);
+  }
+
+  if(d.id==='carbon'){
+   // carbon weave
+   ctx.fillStyle=dark?'#0e0c0a':'#e9e6df';
+   for(let y=0;y<H;y+=8)for(let x=(y/8%2)*8;x<W;x+=16)ctx.fillRect(x,y,7,3);
+   // speed-line sweep on scroll velocity
+   ctx.strokeStyle=dark?'rgba(251,146,60,.5)':'rgba(234,88,12,.45)';ctx.lineWidth=1.4;
+   for(let i=0;i<8;i++){const y=H*.1+i*H*.1, x=W-((t*240*(0.3+sc)+i*120+scroll*900)%(W+80))+40;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+30+sc*40,y);ctx.stroke();}
+   // tach hero
+   const cy=H*.2-scroll*H*.1;
+   ctx.fillStyle=th.ink;ctx.font='italic 900 34px sans-serif';ctx.textAlign='center';
+   ctx.fillText(sp.toFixed(1),W/2,cy);
+   ctx.font='700 10px sans-serif';ctx.fillStyle=th.accent;
+   ctx.fillText('GEAR '+Math.min(5,1+Math.floor(sc*5))+' · MB/S',W/2,cy+16);
+   // RPM bar
+   const bw=W*.7;for(let i=0;i<20;i++){
+    ctx.fillStyle=i/20<sc?(i<12?'#22c55e':i<16?'#fbbf24':'#ef4444'):(dark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)');
+    ctx.fillRect(W*.15+i*(bw/20),cy+28-i*.6,bw/20-2,12+i*.8);}
+   tiles(ctx,W,H*.46-scroll*H*.1,th,dark,2,false);
+  }
+
+  if(d.id==='pulse'){
+   // ONE living orb = the speed; scroll slides + re-hues it
+   const ox=W*(.5+.25*Math.sin(scroll*3)), oy=H*(.22-scroll*.1), or_=W*(.16+sc*.2);
+   const hue=dark?245-scroll*60:240-scroll*80;
+   const rg=ctx.createRadialGradient(ox,oy,0,ox,oy,or_*2.2);
+   rg.addColorStop(0,`hsla(${hue},85%,${dark?65:60}%,${.5+sc*.4})`);
+   rg.addColorStop(.55,`hsla(${hue+40},85%,55%,.18)`);
+   rg.addColorStop(1,'transparent');
+   ctx.fillStyle=rg;ctx.beginPath();ctx.arc(ox,oy,or_*2.2,0,7);ctx.fill();
+   ctx.fillStyle=th.ink;ctx.font='200 44px sans-serif';ctx.textAlign='center';
+   ctx.fillText(sp.toFixed(1),W/2,H*.27-scroll*H*.08);
+   ctx.font='400 10px sans-serif';ctx.fillStyle=dark?'rgba(244,244,245,.5)':'rgba(17,17,20,.5)';
+   ctx.fillText('MB PER SECOND',W/2,H*.31-scroll*H*.08);
+   tiles(ctx,W,H*.45-scroll*H*.1,th,dark,1,false);
+  }
+  requestAnimationFrame(frame);
+ }
+
+ function tiles(ctx,W,y0,th,dark,style,chamfer){
+  ctx.textAlign='left';
+  const rows=[['Floating bubble','ON'],['Status-bar icon','ON'],['Live themes','26'],['Speed scenes','11'],['Widgets','5 styles'],['Tier alerts','Custom']];
+  rows.forEach((r,i)=>{
+   const y=y0+i*54; if(y>cvH(ctx)||y<-60)return;
+   ctx.fillStyle=th.card;
+   if(chamfer){ctx.beginPath();ctx.moveTo(16,y);ctx.lineTo(W-30,y);ctx.lineTo(W-16,y+12);ctx.lineTo(W-16,y+44);ctx.lineTo(16,y+44);ctx.closePath();ctx.fill();
+    ctx.strokeStyle=th.accent+'44';ctx.stroke();}
+   else{rr(ctx,16,y,W-32,44,style===3?14:10);ctx.fill();
+    if(style===3){ctx.strokeStyle=dark?'rgba(255,255,255,.14)':'rgba(0,0,0,.08)';ctx.lineWidth=1;rr(ctx,16,y,W-32,44,14);ctx.stroke();}
+    if(style===1){ctx.strokeStyle=dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';rr(ctx,16,y,W-32,44,10);ctx.stroke();}}
+   ctx.fillStyle=th.ink;ctx.font='600 11px sans-serif';ctx.fillText(r[0],28,y+20);
+   ctx.fillStyle=th.accent;ctx.font='700 10px sans-serif';ctx.fillText(r[1],28,y+34);
+  });
+ }
+ function cvH(ctx){return ctx.canvas.height/2}
+ function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+ function glass(ctx,x,y,w,h,r,th,dark){ctx.fillStyle=th.card;rr(ctx,x,y,w,h,r);ctx.fill();
+  ctx.strokeStyle=dark?'rgba(255,255,255,.18)':'rgba(255,255,255,.9)';ctx.lineWidth=1;rr(ctx,x,y,w,h,r);ctx.stroke();}
+ frame();
+});
+})();
+</script>
+</body>
+</html>
