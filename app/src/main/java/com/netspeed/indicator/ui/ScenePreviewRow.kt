@@ -38,7 +38,6 @@ import com.netspeed.indicator.data.LiveSpeed
 import com.netspeed.indicator.render.scenes.SceneRegistry
 import com.netspeed.indicator.render.scenes.SceneState
 import com.netspeed.indicator.ui.hero.rememberReducedMotion
-import kotlin.math.sin
 
 /**
  * The bubble-animation picker: LIVE animated previews of every speed scene so
@@ -167,7 +166,7 @@ private fun SceneCell(
         ) {
             Canvas(Modifier.fillMaxSize()) {
                 val t = clock()                   // draw-phase read → draw-only ticks
-                val target = if (liveMbps > 0.2f) liveMbps else demoMbps(t)
+                val target = if (liveMbps > 0.2f) liveMbps else demoSweep(t)
                 shown[0] += (target - shown[0]) * 0.12f
                 val mbps = shown[0]
                 state.dtS = (t - lastT[0]).coerceIn(0f, 0.3f)
@@ -209,12 +208,7 @@ private fun Modifier.cellBorder(selected: Boolean): Modifier = border(
 )
 
 /** Idle demo drive: a slow sweep through all five tiers (~25 s loop). */
-private fun demoMbps(t: Float): Float {
-    // Quadratic sweep 0.05..14 MB/s: lingers in the real-world low tiers,
-    // still reaches the rocket era each ~25 s cycle.
-    val x = sin(t * 0.25f) * 0.5f + 0.5f
-    return 0.05f + x * x * 14f
-}
+
 
 private val BUILTINS = listOf(
     Triple("none", "—", "None"),

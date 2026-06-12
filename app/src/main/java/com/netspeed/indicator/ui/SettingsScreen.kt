@@ -43,7 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -133,6 +135,7 @@ fun SettingsScreen(
     onIconBorderColor: (Int) -> Unit,
     onIconBorderWidth: (Int) -> Unit,
     onPinWidget: (com.netspeed.indicator.render.WidgetKind) -> Unit,
+    onOpenStudio: () -> Unit,
     suiteUnlocked: Boolean,
     onLockedTap: () -> Unit,
     onThresholdsChange: (List<Float>) -> Unit,
@@ -190,23 +193,11 @@ fun SettingsScreen(
             skin = skin,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
-        ThemePreviewRow(
-            selected = settings.heroTheme,
-            skin = skin,
+        StudioEntryCard(
+            settings = settings,
             live = live,
-            unlocked = suiteUnlocked,
-            onSelect = { tap(); onThemeSelect(it) },
-            onLocked = onLockedTap,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        SkinPreviewRow(
-            selected = settings.colorSkin,
-            theme = settings.heroTheme,
-            live = live,
-            unlocked = suiteUnlocked,
-            onSelect = { tap(); onSkinSelect(it) },
-            onLocked = onLockedTap,
-            modifier = Modifier.padding(bottom = 8.dp),
+            onOpen = { tap(); onOpenStudio() },
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
         if (settings.heroTheme.isScene) {
             // Scene themes: keep the number OFF the diorama's focal point.
@@ -1788,5 +1779,80 @@ private fun AboutSection() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * Gateway to the Style Studio: three live mini-canvases (current theme, skin,
+ * bubble scene) + the pitch. Replaces the in-page theme/skin rows — the studio
+ * is the marketplace; this card is its storefront window.
+ */
+@Composable
+private fun StudioEntryCard(
+    settings: Settings,
+    live: LiveSpeed,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val reducedMotion = com.netspeed.indicator.ui.hero.rememberReducedMotion()
+    var resumed by remember { mutableStateOf(true) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        resumed = true
+        onPauseOrDispose { resumed = false }
+    }
+    var clock by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(resumed, reducedMotion) {
+        if (!resumed || reducedMotion) return@LaunchedEffect
+        var last = 0L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { t ->
+                if (last == 0L) last = t
+                else {
+                    val dt = (t - last) / 1_000_000_000f
+                    if (dt >= 0.03f) { clock += dt; last = t }
+                }
+            }
+        }
+    }
+    val clockFn = remember { { clock } }
+    val liveMbps = if (live.running) live.downMBps else 0f
+    val sceneEntry = com.netspeed.indicator.render.scenes.SceneRegistry.ALL.firstOrNull {
+        it.id == settings.bubbleFx
+    } ?: com.netspeed.indicator.render.scenes.SceneRegistry.fromThemeKey(settings.heroTheme.storageKey)
+    ?: com.netspeed.indicator.render.scenes.SceneRegistry.ALL.first()
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clickable(onClick = onOpen)
+            .padding(12.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
+                com.netspeed.indicator.ui.ThemeCanvas(settings.heroTheme, settings.colorSkin, clockFn, liveMbps)
+            }
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
+                com.netspeed.indicator.ui.SkinCanvas(
+                    settings.colorSkin,
+                    if (settings.heroTheme.isScene) HeroTheme.TIER_FLOW else settings.heroTheme,
+                    clockFn, liveMbps,
+                )
+            }
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))) {
+                com.netspeed.indicator.ui.SceneCanvas(sceneEntry, clockFn, liveMbps, dark = true)
+            }
+        }
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text("🛍 Style Studio", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "26 themes · 6 skins · bubble styles · widgets — every card live",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
     }
 }

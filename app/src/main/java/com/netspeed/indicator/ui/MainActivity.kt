@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,8 +88,27 @@ class MainActivity : ComponentActivity() {
                 val priceSuite by billing.priceSuite.collectAsStateWithLifecycle()
                 val priceTip by billing.priceTip.collectAsStateWithLifecycle()
                 var showPaywall by remember { mutableStateOf(false) }
+                var showStudio by rememberSaveable { mutableStateOf(false) }
 
-                SettingsScreen(
+                if (showStudio) {
+                    androidx.activity.compose.BackHandler { showStudio = false }
+                    val suiteUnlockedNow = entitlement.suiteUnlocked ||
+                        !com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED
+                    StudioScreen(
+                        settings = settings,
+                        live = live,
+                        suiteUnlocked = suiteUnlockedNow,
+                        onThemeSelect = { v -> persist { repo.setHeroTheme(v) } },
+                        onSkinSelect = { v -> persist { repo.setColorSkin(v) } },
+                        onBubbleFx = { v -> persist { repo.setBubbleFx(v) } },
+                        onBubbleFont = { v -> persist { repo.setBubbleFont(v) } },
+                        onStyleSelect = { v -> persist { repo.setIconStyle(v) } },
+                        onIconUnitStyle = { v -> persist { repo.setIconUnitStyle(v) } },
+                        onPinWidget = { kind -> pinWidget(kind) },
+                        onLockedTap = { showPaywall = true },
+                        onBack = { showStudio = false },
+                    )
+                } else SettingsScreen(
                     settings = settings,
                     live = live,
                     dailyHistory = dailyHistory,
@@ -154,6 +174,7 @@ class MainActivity : ComponentActivity() {
                     onIconBorderColor = { c -> persist { repo.setIconBorderColor(c) } },
                     onIconBorderWidth = { w -> persist { repo.setIconBorderWidth(w) } },
                     onPinWidget = ::pinWidget,
+                    onOpenStudio = { showStudio = true },
                     suiteUnlocked = entitlement.suiteUnlocked || !BuildConfig.PAYWALL_ENABLED,
                     onLockedTap = { showPaywall = true },
                     onThresholdsChange = { v -> persist { repo.setTierThresholds(v) } },
