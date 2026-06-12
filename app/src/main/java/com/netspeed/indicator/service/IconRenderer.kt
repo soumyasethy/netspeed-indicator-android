@@ -228,17 +228,27 @@ class IconRenderer(private val sizePx: Int = 96) {
         }
         val left = (w - dw) / 2f
         val top = (h - dh) / 2f
-        // With a FILLED chip the glyphs are PUNCHED OUT as transparent holes
-        // (DST_OUT) instead of painted on top. Both Android renderers then work:
-        // a tinting status bar (AOSP always, One UI sometimes) paints the chip's
-        // alpha in one colour and the holes still read as digits; a colour-true
-        // bar shows the fill with the bar showing through the cut-outs. An opaque
-        // fill with opaque text would tint into a single blank box.
-        canvas.drawBitmap(
-            content, null,
-            android.graphics.RectF(left, top, left + dw, top + dh),
-            if (!colorTrue && Color.alpha(bgColorArgb) != 0) punchPaint else chipContentPaint,
-        )
+        val dst = android.graphics.RectF(left, top, left + dw, top + dh)
+        if (!colorTrue && Color.alpha(bgColorArgb) != 0) {
+            // KEYLINE GLYPHS: punch the glyph hole out of the fill (DST_OUT), then
+            // paint the glyph back slightly smaller inside it. A bare hole's
+            // "colour" is whatever wallpaper sits behind the status bar — digits
+            // randomly read black/white as the background changes. With the inset
+            // repaint, under an OS tint the digits render in the tint colour ringed
+            // by a crisp transparent outline (stable on any wallpaper); on a
+            // colour-true bar the real fg/bg colours show with the same keyline.
+            canvas.drawBitmap(content, null, dst, punchPaint)
+            val inset = Bitmap.createBitmap(content.width, content.height, Bitmap.Config.ARGB_8888)
+            Canvas(inset).drawBitmap(content, null, android.graphics.RectF(
+                content.width * (1f - GLYPH_INSET) / 2f,
+                content.height * (1f - GLYPH_INSET) / 2f,
+                content.width * (1f + GLYPH_INSET) / 2f,
+                content.height * (1f + GLYPH_INSET) / 2f,
+            ), chipContentPaint)
+            canvas.drawBitmap(inset, null, dst, chipContentPaint)
+        } else {
+            canvas.drawBitmap(content, null, dst, chipContentPaint)
+        }
         return out
     }
 
@@ -280,6 +290,9 @@ class IconRenderer(private val sizePx: Int = 96) {
 
         /** Minimum digit height (fraction of the chip) for a legible punched chip. */
         const val MIN_LEGIBLE_FRACTION = 0.42f
+
+        /** Inset glyph scale inside its punched hole — the gap is the keyline. */
+        const val GLYPH_INSET = 0.86f
     }
 
     // --- stacked styles --------------------------------------------------------

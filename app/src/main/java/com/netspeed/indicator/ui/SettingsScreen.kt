@@ -757,11 +757,11 @@ private fun IconStyleCard(
         run {
             Text(text = "Icon style", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Pick how the speed looks in the status bar. Colours show in full on the " +
-                    "floating bubble and here; Android repaints the tiny status-bar icon itself " +
-                    "in one colour (on every screen, not just the lock screen — no app can opt " +
-                    "out), so there the chip shows as its shape with cut-out digits. Want a " +
-                    "full-colour readout in the bar? Drag the floating bubble up into it.",
+                text = "Pick how the speed looks in the status bar. Colours always show in full " +
+                    "here and on the floating bubble. In the status bar it depends on the phone: " +
+                    "some (e.g. Samsung) show your true colours; others (e.g. Pixel) repaint every " +
+                    "app's icon in one colour — that's Android, not the app, and applies on every " +
+                    "screen. On those phones, drag the floating bubble into the bar for full colour.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
