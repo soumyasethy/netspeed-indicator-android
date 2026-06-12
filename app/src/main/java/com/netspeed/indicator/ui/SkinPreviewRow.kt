@@ -1,49 +1,94 @@
 package com.netspeed.indicator.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.netspeed.indicator.billing.Entitlement
 import com.netspeed.indicator.billing.FeatureGate
+import com.netspeed.indicator.core.SpeedTiers
 import com.netspeed.indicator.data.ColorSkin
+import com.netspeed.indicator.data.HeroTheme
+import com.netspeed.indicator.data.LiveSpeed
+import com.netspeed.indicator.ui.hero.drawHeroBackground
+import com.netspeed.indicator.ui.hero.rememberReducedMotion
+import kotlin.math.sin
 
 /**
- * Skin picker as palette preview cards: each card shows the skin's actual hero
- * gradient, foreground sample ("8.4" in the skin's own typeface) and accent dot
- * — what the WHOLE app will look like, not a name to guess from.
+ * Skin picker as LIVE mini hero banners: every card runs the hero animation in
+ * that skin's palette with the speed sample rendered in the skin's own
+ * typeface — exactly what the whole app will look like, animated, not a name
+ * to guess from. Same perf shape as the other preview rows (LazyRow, one
+ * shared ~30 fps clock, draw-phase reads).
  */
 @Composable
 fun SkinPreviewRow(
     selected: ColorSkin,
+    theme: HeroTheme,
+    live: LiveSpeed,
     unlocked: Boolean,
     onSelect: (ColorSkin) -> Unit,
     onLocked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val reducedMotion = rememberReducedMotion()
+    var resumed by remember { mutableStateOf(true) }
+    LifecycleResumeEffect(Unit) {
+        resumed = true
+        onPauseOrDispose { resumed = false }
+    }
+    var clock by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(resumed, reducedMotion) {
+        if (!resumed || reducedMotion) return@LaunchedEffect
+        var last = 0L
+        while (true) {
+            withFrameNanos { t ->
+                if (last == 0L) {
+                    last = t
+                } else {
+                    val dt = (t - last) / 1_000_000_000f
+                    if (dt >= 0.03f) {
+                        clock += dt
+                        last = t
+                    }
+                }
+            }
+        }
+    }
+    val liveMbps = if (live.running) live.downMBps else 0f
+    // Scene themes paint their own palettes — preview skins on the flowing
+    // gradient instead so each card actually shows ITS colours.
+    val previewTheme = if (theme.isScene) HeroTheme.TIER_FLOW else theme
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "Skin",
+            "Skin — each card is your hero banner in that palette",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.padding(start = 20.dp),
@@ -57,8 +102,11 @@ fun SkinPreviewRow(
                 val locked = !FeatureGate.skinAllowed(skin.ordinal, Entitlement(unlocked))
                 SkinCard(
                     skin = skin,
+                    previewTheme = previewTheme,
                     selected = skin == selected,
                     locked = locked,
+                    clock = { clock },
+                    liveMbps = liveMbps,
                     onPick = { if (locked) onLocked() else onSelect(skin) },
                 )
             }
@@ -67,43 +115,51 @@ fun SkinPreviewRow(
 }
 
 @Composable
-private fun SkinCard(skin: ColorSkin, selected: Boolean, locked: Boolean, onPick: () -> Unit) {
-    // TIER has no fixed palette (it follows live speed) — show the brand trio.
-    val gradient = if (skin.heroColors.size >= 2) skin.heroColors
-    else listOf(Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFEC4899))
+private fun SkinCard(
+    skin: ColorSkin,
+    previewTheme: HeroTheme,
+    selected: Boolean,
+    locked: Boolean,
+    clock: () -> Float,
+    liveMbps: Float,
+    onPick: () -> Unit,
+) {
+    val shown = remember { floatArrayOf(0f) }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.size(width = 92.dp, height = 90.dp),
+        modifier = Modifier.size(width = 116.dp, height = 92.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(width = 92.dp, height = 62.dp)
+                .size(width = 116.dp, height = 64.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Brush.linearGradient(gradient))
                 .border(
                     width = if (selected) 2.dp else 1.dp,
                     color = if (selected) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                     shape = RoundedCornerShape(12.dp),
-                ),
+                )
+                .clickable(onClick = onPick),
         ) {
+            Canvas(Modifier.fillMaxSize()) {
+                val t = clock()
+                val target = if (liveMbps > 0.2f) liveMbps else demoSweep(t)
+                shown[0] += (target - shown[0]) * 0.12f
+                val mbps = shown[0]
+                val tierSkin = skin == ColorSkin.TIER
+                val (c1, c2) = SpeedTiers.blendColors(mbps)
+                val gradColors = if (tierSkin) listOf(c1, c2) else skin.heroColors
+                val accent = if (tierSkin) c2 else skin.accent
+                drawHeroBackground(previewTheme, t, mbps, gradColors, accent, dark = true)
+            }
             Text(
                 "8.4",
-                fontSize = 18.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = if (skin.mono) FontFamily.Monospace else FontFamily.Default,
                 color = skin.heroFg,
                 modifier = Modifier.align(Alignment.Center),
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(6.dp)
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(skin.accent)
-                    .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape),
             )
             if (locked) {
                 Text(
@@ -124,3 +180,5 @@ private fun SkinCard(skin: ColorSkin, selected: Boolean, locked: Boolean, onPick
         )
     }
 }
+
+private fun demoSweep(t: Float): Float = (sin(t * 0.25f) * 0.5f + 0.5f) * 46f + 1f

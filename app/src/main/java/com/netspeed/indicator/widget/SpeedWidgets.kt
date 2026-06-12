@@ -45,11 +45,11 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_IMMUTABLE,
         )
         // Scene-theme hero widgets animate via a launcher-side flip-book:
-        // 24 half-resolution scene frames 42 ms apart (~24 fps), cycled locally
+        // 30 half-resolution scene frames 33 ms apart (30 fps), cycled locally
         // by the ViewFlipper under a crisp full-resolution text overlay —
         // smooth motion from the same 1 Hz push.
         val frames = if (kind == WidgetKind.HERO) {
-            WidgetPainters.renderHeroSceneFrames(widthPx, heightPx, data, FRAME_IDS.size, 0.042f)
+            WidgetPainters.renderHeroSceneFrames(widthPx, heightPx, data, FRAME_IDS.size, 0.033f)
         } else null
         val views = if (frames != null) {
             RemoteViews(context.packageName, R.layout.widget_flipbook).apply {
@@ -75,6 +75,8 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
             R.id.frame_12, R.id.frame_13, R.id.frame_14, R.id.frame_15,
             R.id.frame_16, R.id.frame_17, R.id.frame_18, R.id.frame_19,
             R.id.frame_20, R.id.frame_21, R.id.frame_22, R.id.frame_23,
+            R.id.frame_24, R.id.frame_25, R.id.frame_26, R.id.frame_27,
+            R.id.frame_28, R.id.frame_29,
         )
 
         /** Last frame pushed by the service — used so a freshly pinned widget
@@ -125,8 +127,10 @@ private fun LiveSpeed.toWidgetData() = WidgetData(
 
 class HeroWidget : SpeedWidgetProvider() {
     override val kind = WidgetKind.HERO
-    override val widthPx = 520
-    override val heightPx = 240
+    // High-density launchers stretch the bitmap across ~1300 px — render at
+    // 780x360 so text and scenes stay sharp ("HD"), not 520 px upscaled.
+    override val widthPx = 780
+    override val heightPx = 360
 }
 
 class DialWidget : SpeedWidgetProvider() {

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Scene-theme hero widget: a launcher-side flip-book. RemoteViews can't run a
-  Canvas animation, so the service pushes 24 HALF-RESOLUTION scene frames
-  (42 ms apart — ~24 fps) that the ViewFlipper cycles locally, plus ONE
+  Canvas animation, so the service pushes 30 half-resolution scene frames
+  (33 ms apart - 30 fps) that the ViewFlipper cycles locally, plus ONE
   full-resolution transparent overlay carrying the scrim + text so digits stay
   razor sharp. Smooth motion from the same 1 Hz push, no extra wakeups.
 -->
@@ -16,7 +16,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:autoStart="true"
-        android:flipInterval="42">
+        android:flipInterval="33">
 
         <ImageView
             android:id="@+id/frame_0"
@@ -181,6 +181,48 @@
 
         <ImageView
             android:id="@+id/frame_23"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_24"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_25"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_26"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_27"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_28"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/frame_29"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:contentDescription="@string/app_name"

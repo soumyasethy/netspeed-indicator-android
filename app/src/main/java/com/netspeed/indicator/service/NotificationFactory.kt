@@ -118,14 +118,23 @@ class NotificationFactory(private val context: Context) {
     private fun buildExpandedView(content: Content): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.notification_expanded)
 
-        // Card background, re-rendered each second: scene themes play their
-        // diorama right in the panel (1 fps via the notify tick); classic
-        // themes keep the flowing gemini gradient.
-        val r = 14f * context.resources.displayMetrics.density * (600f / 600f)
-        val sceneBg = com.netspeed.indicator.render.WidgetPainters.sceneCard(
+        // Card background, re-rendered each second: scene themes play an
+        // 8-frame flip-book right in the panel (the ViewFlipper cycles them
+        // locally at 8 fps); classic themes keep the flowing gemini gradient.
+        val r = 14f * context.resources.displayMetrics.density
+        val sceneFrames = com.netspeed.indicator.render.WidgetPainters.sceneCardFrames(
             600, 220, content.themeKey, content.downBps, content.tierThresholds, r,
+            NOTIF_FRAME_IDS.size, 0.125f,
         )
-        rv.setImageViewBitmap(R.id.notif_bg, sceneBg ?: gradientCard(content))
+        if (sceneFrames != null) {
+            NOTIF_FRAME_IDS.forEachIndexed { i, id -> rv.setImageViewBitmap(id, sceneFrames[i]) }
+            rv.setViewVisibility(R.id.notif_flipper, android.view.View.VISIBLE)
+            rv.setViewVisibility(R.id.notif_bg, android.view.View.GONE)
+        } else {
+            rv.setViewVisibility(R.id.notif_flipper, android.view.View.GONE)
+            rv.setViewVisibility(R.id.notif_bg, android.view.View.VISIBLE)
+            rv.setImageViewBitmap(R.id.notif_bg, gradientCard(content))
+        }
 
         rv.setTextViewText(R.id.notif_number, SpeedFormatter.inline(content.downBps))
 
@@ -170,6 +179,13 @@ class NotificationFactory(private val context: Context) {
         val r = 14f * context.resources.displayMetrics.density * (w / 600f)
         canvas.drawRoundRect(android.graphics.RectF(0f, 0f, w.toFloat(), h.toFloat()), r, r, paint)
         return bmp
+    }
+
+    private companion object {
+        val NOTIF_FRAME_IDS = listOf(
+            R.id.nf_0, R.id.nf_1, R.id.nf_2, R.id.nf_3,
+            R.id.nf_4, R.id.nf_5, R.id.nf_6, R.id.nf_7,
+        )
     }
 
     private fun activityIntent(requestCode: Int, extra: String?): PendingIntent {

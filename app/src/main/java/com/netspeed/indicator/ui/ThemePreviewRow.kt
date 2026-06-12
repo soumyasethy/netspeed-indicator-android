@@ -94,12 +94,15 @@ fun ThemePreviewRow(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.padding(start = 20.dp),
         )
+        // Scenes lead the row (the lively, premium sell); classic themes follow.
+        // DISPLAY order only — gating stays on the stable enum ordinal.
+        val display = remember { HeroTheme.entries.sortedByDescending { it.isScene } }
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
         ) {
-            items(HeroTheme.entries.size) { i ->
-                val theme = HeroTheme.entries[i]
+            items(display.size) { i ->
+                val theme = display[i]
                 val locked = !FeatureGate.themeAllowed(theme.ordinal, Entitlement(unlocked))
                 ThemeCard(
                     theme = theme,

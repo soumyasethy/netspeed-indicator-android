@@ -201,6 +201,8 @@ fun SettingsScreen(
         )
         SkinPreviewRow(
             selected = settings.colorSkin,
+            theme = settings.heroTheme,
+            live = live,
             unlocked = suiteUnlocked,
             onSelect = { tap(); onSkinSelect(it) },
             onLocked = onLockedTap,

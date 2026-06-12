@@ -131,6 +131,35 @@ object WidgetPainters {
         return bmp
     }
 
+    /**
+     * Flip-book frames for the EXPANDED NOTIFICATION: [frames] half-resolution
+     * scene frames stepped [dtS] apart, cycled by the panel's ViewFlipper —
+     * the diorama moves between the 1 Hz notify ticks. Null for non-scene themes.
+     */
+    fun sceneCardFrames(
+        w: Int, h: Int, themeKey: String, downBps: Long,
+        thresholds: List<Float>, cornerPx: Float, frames: Int, dtS: Float,
+    ): List<Bitmap>? {
+        val entry = SceneRegistry.fromThemeKey(themeKey) ?: return null
+        val base = (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
+        val sw = (w / 2).coerceAtLeast(1)
+        val sh = (h / 2).coerceAtLeast(1)
+        val d = WidgetData(downBps = downBps, tierThresholds = thresholds)
+        return List(frames) { i ->
+            val bmp = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            val clip = Path().apply {
+                addRoundRect(RectF(0f, 0f, sw.toFloat(), sh.toFloat()), cornerPx / 2f, cornerPx / 2f, Path.Direction.CW)
+            }
+            c.save()
+            c.clipPath(clip)
+            drawSceneMotif(c, sw.toFloat(), sh.toFloat(), d, entry, base + i * dtS)
+            sceneScrim(c, sw.toFloat(), sh.toFloat())
+            c.restore()
+            bmp
+        }
+    }
+
     /** Full-resolution transparent overlay for the flip-book: scrim + texts. */
     fun renderHeroOverlay(w: Int, h: Int, d: WidgetData): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
