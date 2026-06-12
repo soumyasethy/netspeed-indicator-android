@@ -165,7 +165,8 @@ object WidgetPainters {
                         0xFF1E3A8A.toInt(), 0xFF7DD3FC.toInt(), Shader.TileMode.CLAMP)
                 }
                 c.drawRect(card, p)
-                c.drawCircle(wf * 0.82f, hf * 0.26f, hf * 0.12f,
+                // Sun sits mid-right, below the right-aligned "today" header text.
+                c.drawCircle(wf * 0.84f, hf * 0.55f, hf * 0.12f,
                     Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFDE68A.toInt() })
                 heroTexts(c, w, h, d, white, Color.argb(0x99, 255, 255, 255), sparkline = false)
             }
@@ -217,22 +218,49 @@ object WidgetPainters {
         if (d.gradientArgb.size >= 2) d.gradientArgb.toIntArray()
         else intArrayOf(0xFF2563EB.toInt(), 0xFF7C3AED.toInt(), 0xFFEC4899.toInt())
 
-    /** Header + big number + upload line — shared by most motifs. */
+    /**
+     * Header + big number + upload line — shared by most motifs.
+     *
+     * Collision rules (every text is measured, nothing may overlap):
+     *  - The "NetSpeed" brand tag is only drawn when the text block starts at the
+     *    card edge (default [leftFrac]); motifs with art on the left (dial, radar)
+     *    shift the block right, where the tag would run into the right-aligned
+     *    "today" figure — so the tag is dropped there.
+     *  - The number+unit row auto-shrinks to fit the available width (a 4-digit
+     *    "1023 KB/s" used to overflow the card on the shifted motifs).
+     */
     private fun heroTexts(
         c: Canvas, w: Int, h: Int, d: WidgetData, fg: Int, fg60: Int,
         sparkline: Boolean, leftFrac: Float = 0.06f,
     ) {
         val pad = w * leftFrac
-        c.drawText("NetSpeed", pad, h * 0.18f, text(h * 0.10f, fg60, align = Paint.Align.LEFT))
-        c.drawText(
-            "${SpeedFormatter.total(d.todayBytes)} today", w - w * 0.06f, h * 0.18f,
-            text(h * 0.10f, fg60, align = Paint.Align.RIGHT),
-        )
+        val rightEdge = w - w * 0.06f
+        val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT)
+        val todayText = "${SpeedFormatter.total(d.todayBytes)} today"
+        c.drawText(todayText, rightEdge, h * 0.18f, todayPaint)
+        if (leftFrac <= 0.06f) {
+            // Brand fits only when the block starts at the edge; measured guard so
+            // it can never touch the right-aligned today figure.
+            val brand = text(h * 0.10f, fg60, align = Paint.Align.LEFT)
+            val todayLeft = rightEdge - todayPaint.measureText(todayText)
+            if (pad + brand.measureText("NetSpeed") < todayLeft - w * 0.03f) {
+                c.drawText("NetSpeed", pad, h * 0.18f, brand)
+            }
+        }
         val num = SpeedFormatter.parts(d.downBps)
-        val numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
+        var numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
+        var unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
+        // Auto-fit: shrink the row until number + gap + unit fits the card.
+        val avail = rightEdge - pad
+        var rowW = numPaint.measureText(num.value) + w * 0.02f + unitPaint.measureText(num.unit)
+        if (rowW > avail) {
+            val s = avail / rowW
+            numPaint = text(h * 0.34f * s, fg, bold = true, align = Paint.Align.LEFT)
+            unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT)
+            rowW = avail
+        }
         c.drawText(num.value, pad, h * 0.56f, numPaint)
         val numW = numPaint.measureText(num.value)
-        val unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
         c.drawText(num.unit, pad + numW + w * 0.02f, h * 0.56f, unitPaint)
         c.drawText(
             "▲ ${SpeedFormatter.inline(d.upBps)}", pad, h * 0.80f,
@@ -243,7 +271,7 @@ object WidgetPainters {
             drawSparkline(
                 c, d.history,
                 left = maxOf(w * 0.52f, textRight + w * 0.03f),
-                top = h * 0.30f, right = w - w * 0.06f, bottom = h * 0.78f,
+                top = h * 0.30f, right = rightEdge, bottom = h * 0.78f,
             )
         }
     }
@@ -494,7 +522,14 @@ object WidgetPainters {
         val tc = accentOf(d)
         c.drawCircle(w * 0.14f, h * 0.26f, h * 0.06f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tc })
         c.drawText(tier.defaultWord, w * 0.22f, h * 0.30f, text(h * 0.12f, white, bold = true, align = Paint.Align.LEFT))
-        c.drawText(SpeedFormatter.inline(d.downBps), w * 0.08f, h * 0.62f, text(h * 0.27f, white, bold = true, align = Paint.Align.LEFT))
+        // Speed line auto-fits the card: a 4-digit "1023 KB/s" overflowed the right
+        // edge at the fixed size, so measure and shrink when needed.
+        val speedText = SpeedFormatter.inline(d.downBps)
+        var speedPaint = text(h * 0.27f, white, bold = true, align = Paint.Align.LEFT)
+        val availW = w * 0.84f
+        val tw = speedPaint.measureText(speedText)
+        if (tw > availW) speedPaint = text(h * 0.27f * (availW / tw), white, bold = true, align = Paint.Align.LEFT)
+        c.drawText(speedText, w * 0.08f, h * 0.62f, speedPaint)
         c.drawText(tier.defaultSubtitle, w * 0.08f, h * 0.84f, text(h * 0.10f, white60, align = Paint.Align.LEFT))
         c.drawText("NetSpeed", w - w * 0.04f, h * 0.16f, text(h * 0.10f, white60, align = Paint.Align.RIGHT))
         return bmp

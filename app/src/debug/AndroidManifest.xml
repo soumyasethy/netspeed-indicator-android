@@ -5,5 +5,8 @@
         <activity
             android:name="com.netspeed.indicator.tools.FeatureGraphicActivity"
             android:exported="true" />
+        <activity
+            android:name="com.netspeed.indicator.tools.WidgetGalleryActivity"
+            android:exported="true" />
     </application>
 </manifest>
