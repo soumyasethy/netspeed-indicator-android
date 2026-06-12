@@ -16,6 +16,12 @@ import kotlinx.coroutines.flow.map
 /** Single process-wide DataStore instance, scoped to the application context. */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "netspeed_settings")
 
+/** Out-of-box look: blue chip, white glyphs, white outline — legible on every
+ * status bar and the bubble reads branded instead of bare. Users who pick their
+ * own colours override these; explicit choices always win. */
+const val DEFAULT_ICON_BG = 0xFF2563EB.toInt()      // "Blue" preset swatch
+const val DEFAULT_ICON_BORDER = 0xFFFFFFFF.toInt()  // "White" preset swatch
+
 /** User-facing toggles, read by both the UI and the service. */
 data class Settings(
     val enabled: Boolean = false,
@@ -33,7 +39,7 @@ data class Settings(
     /** Whole-app colour skin (palette + hero gradient + font). */
     val colorSkin: ColorSkin = ColorSkin.DEFAULT,
     /** Status-bar icon background ARGB (0 = transparent) and glyph colour. */
-    val iconBgColor: Int = 0,
+    val iconBgColor: Int = DEFAULT_ICON_BG,
     val iconFgColor: Int = 0xFFFFFFFF.toInt(),
     /** User icon text-size multiplier (0.8–1.4), on top of the system font scale. */
     val iconTextScale: Float = 1f,
@@ -42,10 +48,10 @@ data class Settings(
     /** Unit treatment in single-direction icons (short suffix / full / below). */
     val iconUnitStyle: UnitStyle = UnitStyle.DEFAULT,
     /** Icon outline: ARGB colour (0 = none) and stroke width step (1–3). */
-    val iconBorderColor: Int = 0,
+    val iconBorderColor: Int = DEFAULT_ICON_BORDER,
     val iconBorderWidth: Int = 1,
     /** Floating draggable speed bubble drawn over any app (needs overlay permission). */
-    val floatingChip: Boolean = false,
+    val floatingChip: Boolean = true,
     /** Hide the status-bar icon while the bubble is visible (panel row stays). */
     val hideIconWhenBubble: Boolean = true,
     /** Bubble size multiplier (0.8–1.6). */
@@ -93,14 +99,14 @@ class SettingsRepository(private val context: Context) {
                 ?: com.netspeed.indicator.core.SpeedTiers.ALL.map { it.defaultWord },
             dailyQuotaBytes = p[KEY_QUOTA_BYTES] ?: 0L,
             colorSkin = ColorSkin.fromKey(p[KEY_COLOR_SKIN]),
-            iconBgColor = p[KEY_ICON_BG] ?: 0,
+            iconBgColor = p[KEY_ICON_BG] ?: DEFAULT_ICON_BG,
             iconFgColor = p[KEY_ICON_FG] ?: 0xFFFFFFFF.toInt(),
             iconTextScale = p[KEY_ICON_TEXT_SCALE] ?: 1f,
             autoHideIdle = p[KEY_AUTO_HIDE_IDLE] ?: false,
             iconUnitStyle = UnitStyle.fromKey(p[KEY_ICON_UNIT_STYLE]),
-            iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: 0,
+            iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: DEFAULT_ICON_BORDER,
             iconBorderWidth = (p[KEY_ICON_BORDER_WIDTH] ?: 1).coerceIn(1, 3),
-            floatingChip = p[KEY_FLOAT_CHIP] ?: false,
+            floatingChip = p[KEY_FLOAT_CHIP] ?: true,
             hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: true,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
             floatingChipX = p[KEY_FLOAT_X] ?: 24,

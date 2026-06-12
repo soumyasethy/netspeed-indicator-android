@@ -27,6 +27,7 @@ import com.netspeed.indicator.data.SettingsRepository
 import com.netspeed.indicator.data.SpeedBus
 import com.netspeed.indicator.service.SpeedMeterService
 import com.netspeed.indicator.ui.theme.NetSpeedTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -160,6 +161,20 @@ class MainActivity : ComponentActivity() {
     private fun enableIndicator() {
         persist { repo.setEnabled(true) }
         SpeedMeterService.start(this)
+        // The bubble ships enabled by default, but the overlay permission can only
+        // be granted by the user — ask at the natural moment (turning the meter on)
+        // instead of silently never showing the bubble.
+        lifecycleScope.launch {
+            val wantsBubble = repo.settings.first().floatingChip
+            if (wantsBubble && !android.provider.Settings.canDrawOverlays(this@MainActivity)) {
+                startActivity(
+                    Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName"),
+                    ),
+                )
+            }
+        }
     }
 
     private fun disableIndicator() {
