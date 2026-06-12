@@ -53,6 +53,9 @@ data class WidgetData(
     val textV: Int = 0,
     /** Info layout key ([com.netspeed.indicator.data.TextFormat]). */
     val textFormat: String = "classic",
+    /** Fine-tune nudge in percent of width/height. */
+    val textDX: Int = 0,
+    val textDY: Int = 0,
 )
 
 enum class WidgetKind { HERO, DIAL, RINGS, PILL, WEATHER }
@@ -398,13 +401,14 @@ object WidgetPainters {
         val fmt = com.netspeed.indicator.data.TextFormat.fromKey(d.textFormat)
         val pad = w * leftFrac
         val rightEdge = w - w * 0.06f
-        val vOff = h * 0.15f * vPos          // -1 top / 0 centre / +1 bottom
+        val vOff = h * 0.15f * vPos + h * d.textDY / 100f   // grid spot + fine nudge
+        val dxOff = w * d.textDX / 100f
         // Horizontal anchor for the whole block: left edge / centred / right edge.
-        fun originX(width: Float): Float = when (hPos) {
+        fun originX(width: Float): Float = (when (hPos) {
             0 -> (w - width) / 2f
             1 -> rightEdge - width
             else -> pad
-        }
+        } + dxOff).coerceIn(w * 0.01f, (w - width).coerceAtLeast(w * 0.01f))
         fun drawLine(s: String, sizeFrac: Float, y: Float, paintFg: Int, bold: Boolean = false, mono: Boolean = false): Float {
             val p = text(h * sizeFrac, paintFg, bold = bold, align = Paint.Align.LEFT)
             if (mono) p.typeface = Typeface.MONOSPACE

@@ -548,6 +548,8 @@ class SpeedMeterService : LifecycleService() {
                 textH = widgetTextPos().first,
                 textV = widgetTextPos().second,
                 textFormat = settings.heroTextFormat,
+                textDX = settings.heroTextDX,
+                textDY = settings.heroTextDY,
             ),
         )
     }

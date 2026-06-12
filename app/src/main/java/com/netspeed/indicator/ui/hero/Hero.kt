@@ -107,6 +107,8 @@ fun TierFlowHero(
     tierNames: List<String> = SpeedTiers.ALL.map { it.defaultWord },
     heroTextPos: String = "auto",
     heroTextFormat: String = "classic",
+    heroTextDX: Int = 0,
+    heroTextDY: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val dark = isSystemInDarkTheme()
@@ -182,9 +184,12 @@ fun TierFlowHero(
     val (textH, textV) = com.netspeed.indicator.core.SpeedStats.parseTextPos(
         heroTextPos, sceneEntry?.heroTextSide ?: 0,
     )
-    val contentAlign = androidx.compose.ui.BiasAlignment(textH * 0.9f, textV * 0.75f)
-    val scrimCenterX = 0.5f + textH * 0.3f
-    val scrimCenterY = 0.5f + textV * 0.2f
+    // Grid spot + fine nudge (percent of free space, like the bubble pad).
+    val biasX = (textH * 0.9f + heroTextDX / 100f * 2f).coerceIn(-1f, 1f)
+    val biasY = (textV * 0.75f + heroTextDY / 100f * 2f).coerceIn(-1f, 1f)
+    val contentAlign = androidx.compose.ui.BiasAlignment(biasX, biasY)
+    val scrimCenterX = (0.5f + biasX * 0.33f).coerceIn(0.12f, 0.88f)
+    val scrimCenterY = (0.5f + biasY * 0.27f).coerceIn(0.15f, 0.85f)
 
     Box(
         modifier = modifier

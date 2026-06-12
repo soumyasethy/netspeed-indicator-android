@@ -161,6 +161,10 @@ class MainActivity : ComponentActivity() {
                     onBubbleFxPlacement = { v -> persist { repo.setBubbleFxPlacement(v) } },
                     onHeroTextPos = { v -> persist { repo.setHeroTextPos(v) } },
                     onHeroTextFormat = { v -> persist { repo.setHeroTextFormat(v) } },
+                    onHeroTextNudge = { dx, dy -> persist {
+                        repo.setHeroTextDX(settings.heroTextDX + dx)
+                        repo.setHeroTextDY(settings.heroTextDY + dy)
+                    } },
                     onBubbleLockSize = { v -> persist { repo.setBubbleLockSize(v) } },
                     onBubbleBoxW = { v -> persist { repo.setBubbleBoxW(v) } },
                     onBubbleBoxH = { v -> persist { repo.setBubbleBoxH(v) } },

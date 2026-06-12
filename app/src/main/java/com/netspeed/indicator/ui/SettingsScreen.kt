@@ -54,6 +54,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -79,6 +80,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.isSystemInDarkTheme
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.sp
 import com.netspeed.indicator.BuildConfig
@@ -120,6 +122,7 @@ fun SettingsScreen(
     onBubbleFxPlacement: (String) -> Unit,
     onHeroTextPos: (String) -> Unit,
     onHeroTextFormat: (String) -> Unit,
+    onHeroTextNudge: (Int, Int) -> Unit,
     onClearLottieFile: () -> Unit,
     onBubbleLockSize: (Boolean) -> Unit,
     onBubbleBoxW: (Int) -> Unit,
@@ -168,6 +171,54 @@ fun SettingsScreen(
     // Surface sets LocalContentColor = onSurface, so every Text WITHOUT an explicit
     // colour renders with proper contrast (light on dark, dark on light). Without
     // this, unstyled text defaults to black and vanishes on dark skins.
+    // Sticky collapsing hero: the banner pins to the top and SHRINKS as the
+    // list scrolls (content scroll is consumed into the collapse first), then
+    // re-expands when you pull down at the top — with a haptic thunk at each
+    // end. The hero never scrolls away; it folds.
+    val density = LocalDensity.current
+    val minHeroHeight = 132.dp
+    val collapseRangePx = with(density) { (heroHeight - minHeroHeight).toPx() }
+    var heroCollapsePx by remember { mutableFloatStateOf(0f) }
+    val nestedScroll = remember(collapseRangePx) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            var atEdge = false
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                val dy = available.y
+                if (dy < 0 && heroCollapsePx < collapseRangePx) {
+                    val take = minOf(collapseRangePx - heroCollapsePx, -dy)
+                    heroCollapsePx += take
+                    if (heroCollapsePx >= collapseRangePx && !atEdge) {
+                        atEdge = true
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    }
+                    return androidx.compose.ui.geometry.Offset(0f, -take)
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                val dy = available.y
+                if (dy > 0 && heroCollapsePx > 0f) {
+                    val give = minOf(heroCollapsePx, dy)
+                    heroCollapsePx -= give
+                    if (heroCollapsePx <= 0f && atEdge) {
+                        atEdge = false
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    }
+                    return androidx.compose.ui.geometry.Offset(0f, give)
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+    val liveHeroHeight = with(density) { ((heroHeight.toPx() - heroCollapsePx).coerceAtLeast(0f)).toDp() }
+
     Surface(
         color = skin.bg(dark),
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -175,9 +226,9 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState),
+            .nestedScroll(nestedScroll),
     ) {
-        // Edge-to-edge animated hero — the speed number is the subject of the screen.
+        // Edge-to-edge animated hero — pinned; folds with the scroll.
         TierFlowHero(
             live = live,
             theme = settings.heroTheme,
@@ -186,8 +237,15 @@ fun SettingsScreen(
             tierNames = settings.tierNames,
             heroTextPos = settings.heroTextPos,
             heroTextFormat = settings.heroTextFormat,
-            modifier = Modifier.height(heroHeight),
+            heroTextDX = settings.heroTextDX,
+            heroTextDY = settings.heroTextDY,
+            modifier = Modifier.height(liveHeroHeight),
         )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState),
+    ) {
         TierScaleBar(
             live = live,
             thresholds = settings.thresholdsArray(),
@@ -209,12 +267,16 @@ fun SettingsScreen(
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
             TextPosPicker(
                 selected = settings.heroTextPos,
+                dx = settings.heroTextDX,
+                dy = settings.heroTextDY,
                 onPick = { tap(); onHeroTextPos(it) },
+                onNudge = { ddx, ddy -> tap(); onHeroTextNudge(ddx, ddy) },
             )
         }
         TextFormatRow(
             selected = settings.heroTextFormat,
             live = live,
+            settings = settings,
             onPick = { tap(); onHeroTextFormat(it) },
             modifier = Modifier.padding(vertical = 6.dp),
         )
@@ -509,6 +571,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.size(28.dp))
         }
+    }
     }
     }
 }
@@ -1876,30 +1939,40 @@ private fun InlineThemesRow(
     }
 }
 
-/** Auto chip + 3x3 grid: exact text placement for hero banner and widget. */
+/** Compact placement pad (bubble-pad style): Auto + 3x3 grid + fine nudge. */
 @Composable
-private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
+private fun TextPosPicker(
+    selected: String,
+    dx: Int,
+    dy: Int,
+    onPick: (String) -> Unit,
+    onNudge: (Int, Int) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Text position — hero banner & widget",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-        )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            val autoOn = selected == "auto"
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "✨ Auto",
+                "Text position — hero banner & widget",
                 fontSize = 12.sp,
-                color = if (autoOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (autoOn) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                    )
-                    .selectable(selected = autoOn, onClick = { onPick("auto") })
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.weight(1f),
             )
+            Text(
+                "x ${if (dx >= 0) "+" else ""}$dx% · y ${if (dy >= 0) "+" else ""}$dy%",
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                .padding(10.dp),
+        ) {
+            // 3x3 spot grid.
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(listOf("tl", "tc", "tr"), listOf("cl", "cc", "cr"), listOf("bl", "bc", "br")).forEach { rowKeys ->
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1907,8 +1980,8 @@ private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
                             val on = selected == key
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(6.dp))
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(7.dp))
                                     .background(
                                         if (on) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
@@ -1917,9 +1990,7 @@ private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Box(
-                                    Modifier
-                                        .size(7.dp)
-                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                    Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape)
                                         .background(
                                             if (on) MaterialTheme.colorScheme.onPrimary
                                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
@@ -1930,69 +2001,149 @@ private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
                     }
                 }
             }
-            Text(
-                "Pick the exact corner,\nedge or centre",
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-            )
+            // Auto + fine nudge arrows (2% steps, bubble-pad feel).
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val autoOn = selected == "auto"
+                Text(
+                    "✨ Auto",
+                    fontSize = 12.sp,
+                    color = if (autoOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (autoOn) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        )
+                        .selectable(selected = autoOn, onClick = { onPick("auto") })
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("◀" to (-2 to 0), "▶" to (2 to 0), "▲" to (0 to -2), "▼" to (0 to 2)).forEach { (g, d) ->
+                        Text(
+                            g,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                .selectable(selected = false, onClick = { onNudge(d.first, d.second) })
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    "fine-tune · 2% steps",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                )
+            }
         }
     }
 }
 
-/** Info-layout picker: ten formats, each card a true miniature of the layout. */
+/**
+ * Info-layout picker: a 2x3 grid of LIVE cards — each plays the CURRENT theme
+ * animation with that layout's text over it, using real values. "View all"
+ * expands the remaining formats in place (no nested page).
+ */
 @Composable
 private fun TextFormatRow(
     selected: String,
     live: LiveSpeed,
+    settings: Settings,
     onPick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val down = if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 8_808_038L
-    val up = if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 1_258_291L
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Info layout — what the text block shows",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
-        ) {
-            items(com.netspeed.indicator.data.TextFormat.entries.size) { i ->
-                val fmt = com.netspeed.indicator.data.TextFormat.entries[i]
-                val on = selected == fmt.storageKey
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.width(120.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(76.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF101218))
-                            .border(
-                                width = if (on) 2.dp else 1.dp,
-                                color = if (on) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(12.dp),
-                            )
-                            .selectable(selected = on, onClick = { onPick(fmt.storageKey) }),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        FormatMiniPreview(fmt, down, up)
-                    }
-                    Text(
-                        fmt.label,
-                        fontSize = 10.sp,
-                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (on) 1f else 0.65f),
-                    )
+    val reducedMotion = com.netspeed.indicator.ui.hero.rememberReducedMotion()
+    var resumed by remember { mutableStateOf(true) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        resumed = true
+        onPauseOrDispose { resumed = false }
+    }
+    var clock by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(resumed, reducedMotion) {
+        if (!resumed || reducedMotion) return@LaunchedEffect
+        var last = 0L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { t ->
+                if (last == 0L) last = t
+                else {
+                    val dt = (t - last) / 1_000_000_000f
+                    if (dt >= 0.03f) { clock += dt; last = t }
                 }
+            }
+        }
+    }
+    val clockFn = remember { { clock } }
+    val liveMbps = if (live.running) live.downMBps else 0f
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val all = com.netspeed.indicator.data.TextFormat.entries
+    val shown = if (expanded) all else all.take(6)
+
+    Column(modifier = modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Info layout — live preview on your theme",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                if (expanded) "Show less ›" else "View all ${all.size} ›",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        shown.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEach { fmt ->
+                    val on = selected == fmt.storageKey
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(84.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(
+                                    width = if (on) 2.dp else 1.dp,
+                                    color = if (on) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                                .selectable(selected = on, onClick = { onPick(fmt.storageKey) }),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // The CURRENT theme's real animation behind the layout.
+                            com.netspeed.indicator.ui.ThemeCanvas(
+                                settings.heroTheme, settings.colorSkin, clockFn, liveMbps,
+                            )
+                            Box(
+                                Modifier.fillMaxSize().background(Color(0x59000000)),
+                            )
+                            FormatMiniPreview(
+                                fmt,
+                                if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 8_808_038L,
+                                if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 1_258_291L,
+                            )
+                        }
+                        Text(
+                            fmt.label,
+                            fontSize = 10.sp,
+                            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (on) 1f else 0.65f),
+                        )
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
