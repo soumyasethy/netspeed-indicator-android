@@ -38,6 +38,32 @@ class FloatingChip(
 
     val isShown: Boolean get() = view != null
 
+    /**
+     * Keeps the chip FULLY on screen. Without this a drag could park it in a
+     * corner with only a sliver (or nothing) left visible — and since only the
+     * visible part receives touches, it became impossible to drag back. Applied
+     * on show (heals bad persisted positions), on every drag move, on drop and
+     * after a size change.
+     */
+    private fun clamp(lp: WindowManager.LayoutParams) {
+        val dm = context.resources.displayMetrics
+        val vw = view?.width?.takeIf { it > 0 } ?: (48 * dm.density).roundToInt()
+        val vh = view?.height?.takeIf { it > 0 } ?: (BASE_HEIGHT_DP * dm.density).roundToInt()
+        // Never under the status bar: touches there belong to the system (shade
+        // pull), so a chip parked at y=0 becomes un-draggable.
+        val topInset = statusBarHeightPx()
+        lp.x = lp.x.coerceIn(0, (dm.widthPixels - vw).coerceAtLeast(0))
+        lp.y = lp.y.coerceIn(topInset, (dm.heightPixels - vh).coerceAtLeast(topInset))
+    }
+
+    /** Status-bar height (framework dimen; sane fallback when missing). */
+    private fun statusBarHeightPx(): Int {
+        val res = context.resources
+        val id = res.getIdentifier("status_bar_height", "dimen", "android")
+        return if (id > 0) res.getDimensionPixelSize(id)
+        else (28 * res.displayMetrics.density).roundToInt()
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     fun show(x: Int, y: Int, scale: Float) {
         this.scale = scale
@@ -76,11 +102,14 @@ class FloatingChip(
                     if (abs(dx) > 12 || abs(dy) > 12) dragged = true
                     lp.x = startX + dx.roundToInt()
                     lp.y = startY + dy.roundToInt()
+                    clamp(lp)
                     view?.let { wm.updateViewLayout(it, lp) }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (dragged) {
+                        clamp(lp)
+                        view?.let { wm.updateViewLayout(it, lp) }
                         onDropped(lp.x, lp.y)
                     } else {
                         context.startActivity(
@@ -96,6 +125,7 @@ class FloatingChip(
 
         view = iv
         params = lp
+        clamp(lp)   // heal positions persisted off-screen by older builds
         runCatching { wm.addView(iv, lp) }.onFailure { view = null; params = null }
     }
 
@@ -116,7 +146,15 @@ class FloatingChip(
         val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
         iv.setImageBitmap(scaled)
-        params?.let { lp -> runCatching { wm.updateViewLayout(iv, lp) } }
+        // Re-layout only when the chip's size actually changed (content width or
+        // bubble-size slider) — a per-second updateViewLayout would fight an
+        // in-progress drag. Clamp too: a grown chip must not poke off-screen.
+        if (iv.width != targetW || iv.height != targetH.roundToInt()) {
+            params?.let { lp ->
+                clamp(lp)
+                runCatching { wm.updateViewLayout(iv, lp) }
+            }
+        }
     }
 
     fun hide() {
