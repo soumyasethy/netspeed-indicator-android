@@ -31,7 +31,10 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
     protected abstract val heightPx: Int
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val data = SpeedBus.state.value.toWidgetData()
+        // Prefer the last frame the service pushed — it carries the skin gradient,
+        // accent, theme key, history and quota. The bus fallback (bare speeds) only
+        // happens if a widget is added before the service has ever ticked.
+        val data = lastData ?: SpeedBus.state.value.toWidgetData()
         ids.forEach { id -> push(context, manager, id, data) }
     }
 
@@ -51,12 +54,17 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
+        /** Last frame pushed by the service — used so a freshly pinned widget
+         *  renders with the right skin/theme instantly instead of default blue. */
+        @Volatile private var lastData: WidgetData? = null
+
         /**
          * Pushes a fresh frame to every live widget of all kinds. Called by the
          * service once per second while the screen is on. Skips a kind entirely
          * when no widget of that kind exists, so idle widgets cost nothing.
          */
         fun pushAll(context: Context, data: WidgetData) {
+            lastData = data
             val manager = AppWidgetManager.getInstance(context)
             providers.forEach { (cls, _) ->
                 val ids = manager.getAppWidgetIds(ComponentName(context, cls))

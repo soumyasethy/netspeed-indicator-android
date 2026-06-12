@@ -66,8 +66,9 @@ class SpeedMeterService : LifecycleService() {
      *  style then falls back from two icons to the single wide icon for this run. */
     @Volatile private var dualIconsBlocked: Boolean = false
 
-    /** Suite unlock — premium surfaces (the floating bubble) require it. */
-    @Volatile private var suiteUnlocked: Boolean = false
+    /** Suite unlock — premium surfaces (the floating bubble) require it. Starts
+     *  open while the paywall kill-switch is off so the first ticks aren't gated. */
+    @Volatile private var suiteUnlocked: Boolean = !com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED
 
     // Display smoothing + idle auto-hide state (see tick()).
     private var displayDownBps: Double = 0.0
@@ -176,6 +177,9 @@ class SpeedMeterService : LifecycleService() {
                 settings = s
                 // Device verdict from a previous run: skip the dual-icon attempt.
                 if (s.dualIconsBlocked) dualIconsBlocked = true
+                // Bubble toggled off → remove the overlay NOW, not on the next tick
+                // (with the screen off / service paused the chip would linger).
+                if (!s.floatingChip && floatingChip.isShown) runCatching { floatingChip.hide() }
                 // Recompute pause state when the screen-off preference flips.
                 applyPauseState()
             }
@@ -184,7 +188,9 @@ class SpeedMeterService : LifecycleService() {
 
     private fun observeEntitlement() {
         lifecycleScope.launch {
-            entitlements.entitlement.collect { suiteUnlocked = it.suiteUnlocked }
+            entitlements.entitlement.collect {
+                suiteUnlocked = it.suiteUnlocked || !com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED
+            }
         }
     }
 
@@ -273,7 +279,13 @@ class SpeedMeterService : LifecycleService() {
         // pings of 1–3 KiB/s, which would otherwise reset the idle counter forever.
         val idleNow = downShown + upShown < 4096
         idleTicks = if (settings.autoHideIdle && idleNow) idleTicks + 1 else 0
-        val hideIcon = settings.autoHideIdle && idleTicks >= ServiceConstants.IDLE_HIDE_TICKS
+        // The bubble already shows the speed — optionally drop the status-bar icon
+        // too (the notification row must stay: FGS requirement) so it isn't shown
+        // twice. Same transparent-icon trick as idle-hide.
+        val bubbleShowing = settings.floatingChip && suiteUnlocked &&
+            android.provider.Settings.canDrawOverlays(this)
+        val hideIcon = (settings.autoHideIdle && idleTicks >= ServiceConstants.IDLE_HIDE_TICKS) ||
+            (bubbleShowing && settings.hideIconWhenBubble)
 
         iconRenderer.fontScale = resources.configuration.fontScale   // honor system font size
         iconRenderer.userScale = settings.iconTextScale              // user size override
@@ -384,7 +396,9 @@ class SpeedMeterService : LifecycleService() {
     }
 
     private fun pushWidgets(downBps: Long, upBps: Long) {
-        if (!SpeedWidgetProvider.anyPresent(this)) return
+        // pushAll also caches the frame as `lastData`, so a widget pinned later
+        // renders with the right skin/theme instantly — keep building the frame
+        // even while no widget exists yet (it's a tiny value object).
         SpeedWidgetProvider.pushAll(
             this,
             WidgetData(
@@ -398,6 +412,8 @@ class SpeedMeterService : LifecycleService() {
                     settings.colorSkin.accent.toArgb() else 0,
                 gradientArgb = skinGradientArgb(),
                 phase = com.netspeed.indicator.core.GradientFlow.phase(System.currentTimeMillis()),
+                themeKey = settings.heroTheme.storageKey,
+                heroFgArgb = settings.colorSkin.heroFg.toArgb(),
             ),
         )
     }

@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import com.netspeed.indicator.core.SpeedTiers
@@ -36,6 +37,11 @@ data class WidgetData(
     val gradientArgb: List<Int> = emptyList(),
     /** Gemini gradient-flow phase [0,1) from the service clock; 0 = still frame. */
     val phase: Float = 0f,
+    /** Selected hero theme ([com.netspeed.indicator.data.HeroTheme.storageKey];
+     *  "" = default Tier-flow layout). Drives the Hero widget's theme motif. */
+    val themeKey: String = "",
+    /** Skin hero foreground (0 = white). */
+    val heroFgArgb: Int = 0,
 )
 
 enum class WidgetKind { HERO, DIAL, RINGS, PILL, WEATHER }
@@ -59,49 +65,286 @@ object WidgetPainters {
     }
 
     /**
-     * 4×2 gradient hero: the flagship widget — gradient card, header with today's
-     * total, a big tabular number, the upload line, and a live sparkline of recent
-     * samples. Mirrors the in-app hero so the home screen feels of-a-piece.
+     * 4×2 hero: the flagship widget. The background is a simplified static MOTIF
+     * of the user's selected in-app hero theme ([WidgetData.themeKey]) painted in
+     * the skin's colours, so the widget visibly matches what they picked. (Full
+     * 60 fps theme animation can't run in RemoteViews — the service refreshes a
+     * still frame once per second instead.) Default/unknown key = Tier-flow look.
      */
     fun hero(w: Int, h: Int, d: WidgetData): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
+        val wf = w.toFloat(); val hf = h.toFloat()
         val r = h * 0.16f
-        // Skin gradient if set, else the default blue→purple→pink — rendered with
-        // the gemini flow (the service advances d.phase once per second).
-        val colors = if (d.gradientArgb.size >= 2) d.gradientArgb.toIntArray()
-        else intArrayOf(0xFF2563EB.toInt(), 0xFF7C3AED.toInt(), 0xFFEC4899.toInt())
-        val grad = com.netspeed.indicator.core.GradientFlow.shader(w.toFloat(), h.toFloat(), colors, d.phase)
-        c.drawRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), r, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = grad })
+        val card = RectF(0f, 0f, wf, hf)
+        val accent = accentOf(d)
+        val fg = if (d.heroFgArgb != 0) d.heroFgArgb else white
+        val fg60 = (fg and 0x00FFFFFF) or (0x99 shl 24)
 
-        val pad = w * 0.06f
-        // Header row.
-        c.drawText("NetSpeed", pad, h * 0.18f, text(h * 0.10f, white60, align = Paint.Align.LEFT))
+        // Clip to the rounded card so every motif gets the same silhouette.
+        val clip = Path().apply { addRoundRect(card, r, r, Path.Direction.CW) }
+        c.save()
+        c.clipPath(clip)
+
+        when (d.themeKey) {
+            "kinetic" -> {                       // calm gradient, nothing but the number
+                drawFlow(c, wf, hf, d)
+                val num = SpeedFormatter.parts(d.downBps)
+                val p = text(h * 0.46f, fg, bold = true)
+                c.drawText(num.value, wf / 2f, hf * 0.58f, p)
+                c.drawText(num.unit, wf / 2f, hf * 0.78f, text(h * 0.11f, fg60))
+                brandTag(c, w, h, fg60)
+            }
+            "liquid" -> {                        // gradient + two translucent waves
+                drawFlow(c, wf, hf, d)
+                drawWave(c, wf, hf, yBase = hf * 0.74f, amp = hf * 0.08f, phase = d.phase, color = (fg and 0x00FFFFFF) or (0x2E shl 24))
+                drawWave(c, wf, hf, yBase = hf * 0.82f, amp = hf * 0.06f, phase = d.phase + 0.33f, color = (fg and 0x00FFFFFF) or (0x4D shl 24))
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            }
+            "ecg" -> {                           // dark bg + accent heartbeat trace
+                c.drawColor(0xFF0B0F14.toInt())
+                drawEcg(c, wf, hf, accent, d)
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            }
+            "dial" -> {                          // left 270° arc, texts on the right
+                c.drawColor(cardBg)
+                val cx = hf * 0.52f; val cy = hf * 0.52f; val rad = hf * 0.34f
+                val stroke = hf * 0.075f
+                val rect = RectF(cx - rad, cy - rad, cx + rad, cy + rad)
+                val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND }
+                arc.color = faint; c.drawArc(rect, 135f, 270f, false, arc)
+                arc.color = accent
+                c.drawArc(rect, 135f, 270f * (d.downBps / CEIL).coerceIn(0f, 1f), false, arc)
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false, leftFrac = 0.42f)
+            }
+            "radar" -> {                         // rings + sweep wedge
+                c.drawColor(0xFF081210.toInt())
+                val cx = wf * 0.26f; val cy = hf * 0.52f
+                val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = hf * 0.012f; color = blendArgb(accent, cardBg, 0.45f) }
+                for (i in 1..3) c.drawCircle(cx, cy, hf * 0.14f * i, ring)
+                val sweep = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = android.graphics.SweepGradient(cx, cy, intArrayOf(0, accent), floatArrayOf(0.7f, 1f))
+                }
+                c.save(); c.rotate(d.phase * 360f, cx, cy)
+                c.drawCircle(cx, cy, hf * 0.42f, sweep); c.restore()
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false, leftFrac = 0.5f)
+            }
+            "particles" -> {                     // deterministic accent dots
+                c.drawColor(0xFF0B0F17.toInt())
+                val dot = Paint(Paint.ANTI_ALIAS_FLAG)
+                for (i in 0 until 26) {          // pseudo-random but stable layout
+                    val fx = ((i * 73) % 97) / 97f
+                    val fy = ((i * 41) % 89) / 89f
+                    dot.color = blendArgb(accent, white, (i % 5) * 0.12f)
+                    dot.alpha = 60 + (i * 37) % 140
+                    c.drawCircle(wf * fx, hf * fy, hf * (0.008f + ((i * 29) % 13) / 13f * 0.02f), dot)
+                }
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            }
+            "curtains" -> {                      // vertical gradient bands
+                val colors = flowColors(d)
+                val bands = 7
+                val bw = wf / bands
+                val p = Paint(Paint.ANTI_ALIAS_FLAG)
+                for (i in 0 until bands) {
+                    p.color = colors[i % colors.size]
+                    p.alpha = 200 - (i % 3) * 40
+                    c.drawRect(i * bw, 0f, (i + 1) * bw, hf, p)
+                }
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            }
+            "material_you" -> {                  // soft radial blobs
+                c.drawColor(0xFF101418.toInt())
+                drawBlobW(c, wf * 0.78f, hf * 0.22f, hf * 0.55f, blendArgb(accent, cardBg, 0.25f))
+                drawBlobW(c, wf * 0.16f, hf * 0.85f, hf * 0.45f, blendArgb(accent, white, 0.35f))
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            }
+            "sky" -> {                           // vertical sky gradient + sun disc
+                val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = android.graphics.LinearGradient(0f, 0f, 0f, hf,
+                        0xFF1E3A8A.toInt(), 0xFF7DD3FC.toInt(), Shader.TileMode.CLAMP)
+                }
+                c.drawRect(card, p)
+                c.drawCircle(wf * 0.82f, hf * 0.26f, hf * 0.12f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFDE68A.toInt() })
+                heroTexts(c, w, h, d, white, Color.argb(0x99, 255, 255, 255), sparkline = false)
+            }
+            "bento" -> {                         // 2×2 stat tiles
+                c.drawColor(0xFF0E1116.toInt())
+                drawBento(c, wf, hf, d, accent, fg, fg60)
+            }
+            "terminal" -> {                      // green mono terminal lines
+                c.drawColor(0xFF04130A.toInt())
+                drawTerminal(c, wf, hf, d, accent)
+            }
+            "brutalist" -> {                     // flat yellow bg + hard-shadow card
+                c.drawColor(0xFFFACC15.toInt())
+                val cardR = RectF(wf * 0.06f, hf * 0.14f, wf * 0.94f, hf * 0.86f)
+                val shadow = RectF(cardR).apply { offset(hf * 0.035f, hf * 0.035f) }
+                c.drawRect(shadow, Paint().apply { color = Color.BLACK })
+                c.drawRect(cardR, Paint().apply { color = 0xFF15151A.toInt() })
+                val num = SpeedFormatter.parts(d.downBps)
+                c.drawText(num.value, wf / 2f, hf * 0.56f, text(h * 0.30f, 0xFFFACC15.toInt(), bold = true))
+                c.drawText("${num.unit} · ▲ ${SpeedFormatter.inline(d.upBps)}", wf / 2f, hf * 0.74f,
+                    text(h * 0.09f, Color.argb(0xB3, 255, 255, 255)))
+            }
+            "glass" -> {                         // gradient + translucent panels
+                drawFlow(c, wf, hf, d)
+                val panel = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(0x38, 255, 255, 255) }
+                c.drawRoundRect(RectF(wf * 0.05f, hf * 0.18f, wf * 0.62f, hf * 0.84f), hf * 0.08f, hf * 0.08f, panel)
+                panel.alpha = 0x24
+                c.drawRoundRect(RectF(wf * 0.66f, hf * 0.30f, wf * 0.95f, hf * 0.84f), hf * 0.08f, hf * 0.08f, panel)
+                heroTexts(c, w, h, d, fg, fg60, sparkline = false, leftFrac = 0.09f)
+            }
+            else -> {                            // "tier_flow" + default: gradient + sparkline
+                drawFlow(c, wf, hf, d)
+                heroTexts(c, w, h, d, fg, fg60, sparkline = true)
+            }
+        }
+        c.restore()
+        return bmp
+    }
+
+    // --- hero motif helpers -----------------------------------------------------
+
+    /** The flowing skin gradient over the whole card. */
+    private fun drawFlow(c: Canvas, w: Float, h: Float, d: WidgetData) {
+        val grad = com.netspeed.indicator.core.GradientFlow.shader(w, h, flowColors(d), d.phase)
+        c.drawRect(0f, 0f, w, h, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = grad })
+    }
+
+    private fun flowColors(d: WidgetData): IntArray =
+        if (d.gradientArgb.size >= 2) d.gradientArgb.toIntArray()
+        else intArrayOf(0xFF2563EB.toInt(), 0xFF7C3AED.toInt(), 0xFFEC4899.toInt())
+
+    /** Header + big number + upload line — shared by most motifs. */
+    private fun heroTexts(
+        c: Canvas, w: Int, h: Int, d: WidgetData, fg: Int, fg60: Int,
+        sparkline: Boolean, leftFrac: Float = 0.06f,
+    ) {
+        val pad = w * leftFrac
+        c.drawText("NetSpeed", pad, h * 0.18f, text(h * 0.10f, fg60, align = Paint.Align.LEFT))
         c.drawText(
-            "${SpeedFormatter.total(d.todayBytes)} today", w - pad, h * 0.18f,
-            text(h * 0.10f, white60, align = Paint.Align.RIGHT),
+            "${SpeedFormatter.total(d.todayBytes)} today", w - w * 0.06f, h * 0.18f,
+            text(h * 0.10f, fg60, align = Paint.Align.RIGHT),
         )
-        // Big number.
         val num = SpeedFormatter.parts(d.downBps)
-        val numPaint = text(h * 0.34f, white, bold = true, align = Paint.Align.LEFT)
+        val numPaint = text(h * 0.34f, fg, bold = true, align = Paint.Align.LEFT)
         c.drawText(num.value, pad, h * 0.56f, numPaint)
         val numW = numPaint.measureText(num.value)
-        val unitPaint = text(h * 0.12f, white60, align = Paint.Align.LEFT)
+        val unitPaint = text(h * 0.12f, fg60, align = Paint.Align.LEFT)
         c.drawText(num.unit, pad + numW + w * 0.02f, h * 0.56f, unitPaint)
-        // Upload line.
         c.drawText(
             "▲ ${SpeedFormatter.inline(d.upBps)}", pad, h * 0.80f,
-            text(h * 0.11f, white60, align = Paint.Align.LEFT),
+            text(h * 0.11f, fg60, align = Paint.Align.LEFT),
         )
-        // Sparkline on the right — its left edge yields to the measured number+unit
-        // so a 4-digit value ("1023 KB/s") can never run under the bars.
-        val textRight = pad + numW + w * 0.02f + unitPaint.measureText(num.unit)
-        drawSparkline(
-            c, d.history,
-            left = maxOf(w * 0.52f, textRight + w * 0.03f),
-            top = h * 0.30f, right = w - pad, bottom = h * 0.78f,
+        if (sparkline) {
+            val textRight = pad + numW + w * 0.02f + unitPaint.measureText(num.unit)
+            drawSparkline(
+                c, d.history,
+                left = maxOf(w * 0.52f, textRight + w * 0.03f),
+                top = h * 0.30f, right = w - w * 0.06f, bottom = h * 0.78f,
+            )
+        }
+    }
+
+    /** Small "NetSpeed" tag for motifs that draw their own content. */
+    private fun brandTag(c: Canvas, w: Int, h: Int, fg60: Int) {
+        c.drawText("NetSpeed", w * 0.06f, h * 0.18f, text(h * 0.10f, fg60, align = Paint.Align.LEFT))
+    }
+
+    /** One sine wave filled to the bottom edge (Liquid motif). */
+    private fun drawWave(c: Canvas, w: Float, h: Float, yBase: Float, amp: Float, phase: Float, color: Int) {
+        val path = Path().apply {
+            moveTo(0f, yBase)
+            var x = 0f
+            while (x <= w) {
+                val y = yBase + amp * sin(((x / w) * 2f * Math.PI) + phase * 2f * Math.PI).toFloat()
+                lineTo(x, y)
+                x += w / 48f
+            }
+            lineTo(w, h); lineTo(0f, h); close()
+        }
+        c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+    }
+
+    /** Heartbeat polyline scaled to recent history (ECG motif). */
+    private fun drawEcg(c: Canvas, w: Float, h: Float, accent: Int, d: WidgetData) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = accent; style = Paint.Style.STROKE; strokeWidth = h * 0.018f
+            strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
+        }
+        val mid = h * 0.62f
+        val recent = d.history.takeLast(24)
+        val path = Path().apply {
+            moveTo(0f, mid)
+            if (recent.isEmpty()) { lineTo(w, mid) } else {
+                val step = w / recent.size
+                recent.forEachIndexed { i, v ->
+                    val frac = (v.toFloat() / CEIL).coerceIn(0f, 1f)
+                    lineTo(i * step + step * 0.5f, mid - frac * h * 0.34f)
+                }
+                lineTo(w, mid)
+            }
+        }
+        c.drawPath(path, p)
+        // faint grid
+        val grid = Paint().apply { color = Color.argb(0x14, 255, 255, 255); strokeWidth = 1f }
+        var gx = 0f
+        while (gx < w) { c.drawLine(gx, 0f, gx, h, grid); gx += h * 0.18f }
+    }
+
+    /** Soft radial blob (Material You motif). */
+    private fun drawBlobW(c: Canvas, cx: Float, cy: Float, radius: Float, color: Int) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = android.graphics.RadialGradient(
+                cx, cy, radius, color, color and 0x00FFFFFF, Shader.TileMode.CLAMP,
+            )
+        }
+        c.drawCircle(cx, cy, radius, p)
+    }
+
+    /** 2×2 stat tiles (Bento motif). */
+    private fun drawBento(c: Canvas, w: Float, h: Float, d: WidgetData, accent: Int, fg: Int, fg60: Int) {
+        val gap = h * 0.05f
+        val tileW = (w - gap * 3) / 2f
+        val tileH = (h - gap * 3) / 2f
+        val tile = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF1A1E26.toInt() }
+        val cells = listOf(
+            "▼ down" to SpeedFormatter.inline(d.downBps),
+            "▲ up" to SpeedFormatter.inline(d.upBps),
+            "today" to SpeedFormatter.total(d.todayBytes),
+            "peak" to SpeedFormatter.inline(d.peakBps),
         )
-        return bmp
+        cells.forEachIndexed { i, (label, value) ->
+            val col = i % 2; val row = i / 2
+            val left = gap + col * (tileW + gap)
+            val top = gap + row * (tileH + gap)
+            tile.color = if (i == 0) blendArgb(accent, 0xFF1A1E26.toInt(), 0.65f) else 0xFF1A1E26.toInt()
+            c.drawRoundRect(RectF(left, top, left + tileW, top + tileH), h * 0.06f, h * 0.06f, tile)
+            c.drawText(label, left + tileW * 0.08f, top + tileH * 0.34f, text(h * 0.085f, fg60, align = Paint.Align.LEFT))
+            c.drawText(value, left + tileW * 0.08f, top + tileH * 0.78f, text(h * 0.13f, fg, bold = true, align = Paint.Align.LEFT))
+        }
+    }
+
+    /** Green mono terminal lines + block sparkline (Terminal motif). */
+    private fun drawTerminal(c: Canvas, w: Float, h: Float, d: WidgetData, accent: Int) {
+        val mono = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = accent; textSize = h * 0.105f
+            typeface = Typeface.MONOSPACE; textAlign = Paint.Align.LEFT
+        }
+        val pad = w * 0.06f
+        val blocks = " ▁▂▃▄▅▆▇█"
+        val spark = d.history.takeLast(16).joinToString("") { v ->
+            val i = ((v.toFloat() / CEIL).coerceIn(0f, 1f) * (blocks.length - 1)).toInt()
+            blocks[i].toString()
+        }.ifEmpty { "────────────────" }
+        c.drawText("\$ netspeed --live", pad, h * 0.22f, mono)
+        mono.textSize = h * 0.16f
+        c.drawText("▼ ${SpeedFormatter.inline(d.downBps)}", pad, h * 0.46f, mono)
+        mono.textSize = h * 0.105f
+        c.drawText("▲ ${SpeedFormatter.inline(d.upBps)}  · ${SpeedFormatter.total(d.todayBytes)} today", pad, h * 0.64f, mono)
+        c.drawText(spark, pad, h * 0.84f, mono)
     }
 
     private fun drawSparkline(c: Canvas, history: List<Long>, left: Float, top: Float, right: Float, bottom: Float) {

@@ -46,6 +46,8 @@ data class Settings(
     val iconBorderWidth: Int = 1,
     /** Floating draggable speed bubble drawn over any app (needs overlay permission). */
     val floatingChip: Boolean = false,
+    /** Hide the status-bar icon while the bubble is visible (panel row stays). */
+    val hideIconWhenBubble: Boolean = true,
     /** Bubble size multiplier (0.8–1.6). */
     val floatingChipScale: Float = 1f,
     /** Persisted bubble position (window coordinates). */
@@ -99,6 +101,7 @@ class SettingsRepository(private val context: Context) {
             iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: 0,
             iconBorderWidth = (p[KEY_ICON_BORDER_WIDTH] ?: 1).coerceIn(1, 3),
             floatingChip = p[KEY_FLOAT_CHIP] ?: false,
+            hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: true,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
             floatingChipX = p[KEY_FLOAT_X] ?: 24,
             floatingChipY = p[KEY_FLOAT_Y] ?: 240,
@@ -144,6 +147,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setIconBorderWidth(w: Int) = edit { it[KEY_ICON_BORDER_WIDTH] = w.coerceIn(1, 3) }
     suspend fun setDualIconsBlocked(value: Boolean) = edit { it[KEY_DUAL_BLOCKED] = value }
     suspend fun setFloatingChip(value: Boolean) = edit { it[KEY_FLOAT_CHIP] = value }
+    suspend fun setHideIconWhenBubble(value: Boolean) = edit { it[KEY_HIDE_ICON_BUBBLE] = value }
     suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.8f, 1.6f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
 
@@ -199,6 +203,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_ICON_BORDER_WIDTH = intPreferencesKey("icon_border_width")
         val KEY_DUAL_BLOCKED = booleanPreferencesKey("dual_icons_blocked")
         val KEY_FLOAT_CHIP = booleanPreferencesKey("floating_chip")
+        val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
         val KEY_FLOAT_SCALE = floatPreferencesKey("floating_chip_scale")
         val KEY_FLOAT_X = intPreferencesKey("floating_chip_x")
         val KEY_FLOAT_Y = intPreferencesKey("floating_chip_y")

@@ -54,13 +54,23 @@ object FeatureGate {
     /** Skins available for free, by enum ordinal (the rest need the unlock). */
     const val FREE_SKIN_COUNT = 2
 
-    fun floatingBubble(e: Entitlement) = e.suiteUnlocked
-    fun widgets(e: Entitlement) = e.suiteUnlocked
-    fun customColorPicker(e: Entitlement) = e.suiteUnlocked
+    /**
+     * Kill-switch: while false (the shipped default), every gate is open and the
+     * paywall never shows — the billing code stays dormant until the Play Console
+     * products exist. Defaults to [com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED];
+     * mutable so unit tests can exercise both modes.
+     */
+    var gatingActive: Boolean = com.netspeed.indicator.BuildConfig.PAYWALL_ENABLED
+
+    fun floatingBubble(e: Entitlement) = !gatingActive || e.suiteUnlocked
+    fun widgets(e: Entitlement) = !gatingActive || e.suiteUnlocked
+    fun customColorPicker(e: Entitlement) = !gatingActive || e.suiteUnlocked
 
     /** Theme at [ordinal] is allowed if free-tier or the suite is unlocked. */
-    fun themeAllowed(ordinal: Int, e: Entitlement) = e.suiteUnlocked || ordinal < FREE_THEME_COUNT
+    fun themeAllowed(ordinal: Int, e: Entitlement) =
+        !gatingActive || e.suiteUnlocked || ordinal < FREE_THEME_COUNT
 
     /** Skin at [ordinal] is allowed if free-tier or the suite is unlocked. */
-    fun skinAllowed(ordinal: Int, e: Entitlement) = e.suiteUnlocked || ordinal < FREE_SKIN_COUNT
+    fun skinAllowed(ordinal: Int, e: Entitlement) =
+        !gatingActive || e.suiteUnlocked || ordinal < FREE_SKIN_COUNT
 }

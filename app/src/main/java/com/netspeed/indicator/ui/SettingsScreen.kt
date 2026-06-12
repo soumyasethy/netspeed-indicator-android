@@ -103,6 +103,7 @@ fun SettingsScreen(
     onAutoHideToggle: (Boolean) -> Unit,
     onFloatingChipToggle: (Boolean) -> Unit,
     onFloatingChipScale: (Float) -> Unit,
+    onHideIconWhenBubble: (Boolean) -> Unit,
     dailyHistory: List<com.netspeed.indicator.data.DayUsage>,
     onStyleSelect: (IconStyle) -> Unit,
     onPanelToggle: (Boolean) -> Unit,
@@ -281,6 +282,13 @@ fun SettingsScreen(
                 tierColor = tierColor,
             )
             if (settings.floatingChip && suiteUnlocked) {
+                ToggleRow(
+                    title = "Hide status-bar icon while bubble is shown",
+                    subtitle = "No double display. The notification row stays (Android requires it); only the icon disappears.",
+                    checked = settings.hideIconWhenBubble,
+                    onCheckedChange = { tap(); onHideIconWhenBubble(it) },
+                    tierColor = tierColor,
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

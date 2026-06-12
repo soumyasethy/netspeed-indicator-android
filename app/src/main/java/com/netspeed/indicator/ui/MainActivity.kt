@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onFloatingChipScale = { v -> persist { repo.setFloatingChipScale(v) } },
+                    onHideIconWhenBubble = { v -> persist { repo.setHideIconWhenBubble(v) } },
                     onStyleSelect = { style -> persist { repo.setIconStyle(style) } },
                     onPanelToggle = { value -> persist { repo.setShowInPanel(value) } },
                     onThemeSelect = { theme -> persist { repo.setHeroTheme(theme) } },
@@ -109,7 +110,7 @@ class MainActivity : ComponentActivity() {
                     onIconBorderColor = { c -> persist { repo.setIconBorderColor(c) } },
                     onIconBorderWidth = { w -> persist { repo.setIconBorderWidth(w) } },
                     onPinWidget = ::pinWidget,
-                    suiteUnlocked = entitlement.suiteUnlocked,
+                    suiteUnlocked = entitlement.suiteUnlocked || !BuildConfig.PAYWALL_ENABLED,
                     onLockedTap = { showPaywall = true },
                     onThresholdsChange = { v -> persist { repo.setTierThresholds(v) } },
                     onNamesChange = { v -> persist { repo.setTierNames(v) } },

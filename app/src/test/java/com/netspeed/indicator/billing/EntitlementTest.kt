@@ -2,9 +2,34 @@ package com.netspeed.indicator.billing
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 class EntitlementTest {
+
+    // Gate behaviour is defined for the LIVE paywall; the shipped default may be
+    // the dormant kill-switch, so force gating on and restore after each test.
+    private var savedGating = false
+
+    @Before fun forceGatingOn() {
+        savedGating = FeatureGate.gatingActive
+        FeatureGate.gatingActive = true
+    }
+
+    @After fun restoreGating() {
+        FeatureGate.gatingActive = savedGating
+    }
+
+    @Test fun kill_switch_opens_every_gate() {
+        FeatureGate.gatingActive = false
+        val locked = Entitlement.LOCKED
+        assertTrue(FeatureGate.floatingBubble(locked))
+        assertTrue(FeatureGate.widgets(locked))
+        assertTrue(FeatureGate.customColorPicker(locked))
+        assertTrue(FeatureGate.themeAllowed(13, locked))
+        assertTrue(FeatureGate.skinAllowed(5, locked))
+    }
 
     @Test fun locked_when_no_purchases() {
         assertFalse(Entitlement.from(emptySet()).suiteUnlocked)

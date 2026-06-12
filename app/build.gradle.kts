@@ -27,6 +27,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        // Paywall kill-switch: gating code ships dormant until the suite_unlock /
+        // tip_small products exist in Play Console. While false, FeatureGate allows
+        // everything — flipping to true is the single release lever for v1.2+.
+        buildConfigField("boolean", "PAYWALL_ENABLED", "false")
     }
 
     signingConfigs {

@@ -73,7 +73,7 @@ class IconRenderer(private val sizePx: Int = 96) {
 
     /** A clean directional arrow (stem + chevron) centred at (cx, cy), height [h]. */
     private fun drawArrowGlyph(canvas: Canvas, cx: Float, cy: Float, h: Float, down: Boolean) {
-        arrowPaint.strokeWidth = h * 0.20f       // bolder so it reads at status-bar size
+        arrowPaint.strokeWidth = h * 0.28f       // bolder so it reads at status-bar size
         val half = h / 2f
         val headW = h * 0.32f
         val headDepth = h * 0.34f
@@ -143,13 +143,10 @@ class IconRenderer(private val sizePx: Int = 96) {
                 else singleContent(downBps, down = true)
         }
 
-    /** True when a pill fill or outline is active — content then renders smaller
-     *  ([decoScale]) so the chip gets real breathing room around the glyphs. */
+    /** True when a pill fill or outline is active — content is then framed in a
+     *  fixed square chip ([frame]); the glyphs themselves stay full size. */
     private val isDecorated: Boolean
         get() = Color.alpha(bgColorArgb) != 0 || Color.alpha(borderColorArgb) != 0
-
-    /** Glyph shrink inside a chip: leaves visible top/bottom padding in the badge. */
-    private val decoScale: Float get() = if (isDecorated) 0.76f else 1f
 
     private val chipContentPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val punchPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
@@ -158,22 +155,40 @@ class IconRenderer(private val sizePx: Int = 96) {
 
     /**
      * Decorates glyph content with the optional background pill / outline.
-     * The chip is one FIXED badge: exactly [sizePx] tall and 1.70× wide — the
-     * widest shape One UI still fits BY HEIGHT, so the chip always renders at
-     * 100% of the icon slot, never scaled down, never changing size with the
-     * value. Content is fit-scaled into the padded inner box, guaranteeing real
-     * top/bottom (14%) and side (10%) padding — no glyph/border overlap.
+     * The chip is one FIXED square badge — exactly [sizePx] × [sizePx] — so it
+     * always fills the OS icon slot by height and never changes size with the
+     * value. Content is fit-scaled into a thinly padded (6%) inner box: at slot
+     * size the punched-out digits must DOMINATE the chip or they blur into the
+     * fill, so the glyphs get ~80–94% of the chip, modulated by the user's
+     * text-size slider (which therefore stays visibly effective inside the chip).
+     *
+     * LEGIBILITY FALLBACK: if the fitted digits would still land below
+     * [MIN_LEGIBLE_FRACTION] of the chip (wide content squeezed into the square —
+     * e.g. two-row styles or long "1023 KB/s" rows), the chip is skipped and the
+     * plain undecorated glyphs are returned instead. Deterministic per
+     * style/unit/value — never an intermittent blank box.
+     *
      * Without bg and outline the tight content is returned as-is.
      */
     private fun frame(content: Bitmap, refContent: () -> Bitmap): Bitmap {
         if (!isDecorated) return content
         val h = sizePx
         val w = sizePx
-        val padY = h * 0.14f
-        val padX = h * 0.10f
+        val pad = h * 0.06f
+        val maxW = w - pad * 2f
+        val maxH = h - pad * 2f
+        // User slider maps 0.8..1.4 → 0.78..1.0 of the fitted size, so "Icon text
+        // size" visibly changes the digits inside the chip too (pure fit-to-box
+        // used to cancel the slider entirely).
+        val userFill = (0.78f + (userScale - 0.8f) / 0.6f * 0.22f).coerceIn(0.78f, 1f)
+        val fit = minOf(maxW / content.width, maxH / content.height)
+        val s = fit * userFill
+        val dh = content.height * s
+        if (dh < h * MIN_LEGIBLE_FRACTION) return content   // legibility fallback
+        val dw = content.width * s
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
-        val r = h * 0.30f
+        val r = h * 0.22f
         if (Color.alpha(bgColorArgb) != 0) {
             canvas.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, bgPaint)
         }
@@ -183,11 +198,6 @@ class IconRenderer(private val sizePx: Int = 96) {
             val inset = stroke / 2f
             canvas.drawRoundRect(inset, inset, w - inset, h - inset, r, r, borderPaint)
         }
-        val maxW = w - padX * 2f
-        val maxH = h - padY * 2f
-        val s = minOf(maxW / content.width, maxH / content.height, 1f)
-        val dw = content.width * s
-        val dh = content.height * s
         val left = (w - dw) / 2f
         val top = (h - dh) / 2f
         // With a FILLED chip the glyphs are PUNCHED OUT as transparent holes
@@ -238,6 +248,9 @@ class IconRenderer(private val sizePx: Int = 96) {
     private companion object {
         /** Reference rate (888 KiB/s) for stable frame sizing — widest typical digits. */
         const val REF_BPS = 888L * 1024L
+
+        /** Minimum digit height (fraction of the chip) for a legible punched chip. */
+        const val MIN_LEGIBLE_FRACTION = 0.42f
     }
 
     // --- stacked styles --------------------------------------------------------
@@ -260,8 +273,8 @@ class IconRenderer(private val sizePx: Int = 96) {
     /** Value row + unit row, cap-height sized, zero outer padding. */
     private fun stackedBitmap(value: String, unit: String, unitArrowDown: Boolean?): Bitmap {
         val h = sizePx
-        val valueCap = h * (0.54f * eff * decoScale).coerceIn(0.30f, 0.60f)
-        val unitCap = h * (0.30f * eff * decoScale).coerceIn(0.17f, 0.34f)
+        val valueCap = h * (0.54f * eff).coerceIn(0.30f, 0.60f)
+        val unitCap = h * (0.30f * eff).coerceIn(0.17f, 0.34f)
         val rowGap = h * 0.08f
         val padY = (h - valueCap - unitCap - rowGap) / 2f
 
@@ -303,7 +316,7 @@ class IconRenderer(private val sizePx: Int = 96) {
     /** "▲ upCompact" / "▼ downCompact" — two tight cap-height rows. */
     private fun arrowsUpDown(upBps: Long, downBps: Long): Bitmap {
         val h = sizePx
-        val rowCap = h * (0.40f * eff * decoScale).coerceIn(0.23f, 0.44f)
+        val rowCap = h * (0.40f * eff).coerceIn(0.23f, 0.44f)
         val rowGap = h * 0.10f
         val padY = (h - rowCap * 2f - rowGap) / 2f
 
@@ -410,7 +423,7 @@ class IconRenderer(private val sizePx: Int = 96) {
         // shorter than the slot. We therefore keep the row as NARROW as legibility
         // allows (small arrows, tight gaps) so the bitmap fits closer to by-height
         // and the digits reach near the full slot height — close to the clock size.
-        val fill = (0.92f * eff * decoScale).coerceIn(0.45f, 1.0f)
+        val fill = (0.92f * eff).coerceIn(0.45f, 1.0f)
         val capH = sizePx * fill                          // target digit cap-height
 
         // Size the font so a digit's measured cap-height equals capH.
@@ -498,7 +511,7 @@ class IconRenderer(private val sizePx: Int = 96) {
             }
         }
 
-        val fill = (0.92f * eff * decoScale).coerceIn(0.45f, 1.0f)
+        val fill = (0.92f * eff).coerceIn(0.45f, 1.0f)
         val capH = sizePx * fill
 
         rowPaint.textAlign = Paint.Align.LEFT
