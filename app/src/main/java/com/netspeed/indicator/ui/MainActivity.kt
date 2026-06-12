@@ -100,6 +100,8 @@ class MainActivity : ComponentActivity() {
                     },
                     onFloatingChipScale = { v -> persist { repo.setFloatingChipScale(v) } },
                     onHideIconWhenBubble = { v -> persist { repo.setHideIconWhenBubble(v) } },
+                    onBubbleFreePlacement = { v -> persist { repo.setBubbleFreePlacement(v) } },
+                    onResetBubblePos = { persist { repo.resetFloatingChipPos() } },
                     onStyleSelect = { style -> persist { repo.setIconStyle(style) } },
                     onPanelToggle = { value -> persist { repo.setShowInPanel(value) } },
                     onThemeSelect = { theme -> persist { repo.setHeroTheme(theme) } },

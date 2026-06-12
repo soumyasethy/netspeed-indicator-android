@@ -36,7 +36,26 @@ class FloatingChip(
     /** Display height of the chip in dp at scale 1.0 (the bubble-size slider scales this). */
     private var scale: Float = 1f
 
+    /**
+     * Free placement: the chip may dock over the status bar and push half-out of
+     * any screen edge — a ≥[MIN_VISIBLE_DP] sliver always stays touchable. Off =
+     * safe mode: fully on-screen, below the status bar. The "Reset bubble
+     * position" button is the escape hatch either way (a chip under the status
+     * bar is visible but the bar steals its touches).
+     */
+    var freePlacement: Boolean = true
+
     val isShown: Boolean get() = view != null
+    val posX: Int get() = params?.x ?: 0
+    val posY: Int get() = params?.y ?: 0
+
+    /** Programmatic move (the Reset button) — clamped, applied live. */
+    fun moveTo(x: Int, y: Int) {
+        val lp = params ?: return
+        lp.x = x; lp.y = y
+        clamp(lp)
+        view?.let { runCatching { wm.updateViewLayout(it, lp) } }
+    }
 
     /**
      * Keeps the chip FULLY on screen. Without this a drag could park it in a
@@ -49,11 +68,19 @@ class FloatingChip(
         val dm = context.resources.displayMetrics
         val vw = view?.width?.takeIf { it > 0 } ?: (48 * dm.density).roundToInt()
         val vh = view?.height?.takeIf { it > 0 } ?: (BASE_HEIGHT_DP * dm.density).roundToInt()
-        // Never under the status bar: touches there belong to the system (shade
-        // pull), so a chip parked at y=0 becomes un-draggable.
-        val topInset = statusBarHeightPx()
-        lp.x = lp.x.coerceIn(0, (dm.widthPixels - vw).coerceAtLeast(0))
-        lp.y = lp.y.coerceIn(topInset, (dm.heightPixels - vh).coerceAtLeast(topInset))
+        if (freePlacement) {
+            // Half-out docking: at least a MIN_VISIBLE sliver stays on screen on
+            // both axes, and the chip may sit over the status bar (y from 0).
+            val min = (MIN_VISIBLE_DP * dm.density).roundToInt()
+            lp.x = lp.x.coerceIn(-(vw - min), dm.widthPixels - min)
+            lp.y = lp.y.coerceIn(0, dm.heightPixels - min)
+        } else {
+            // Safe mode: fully on screen, never under the status bar (touches
+            // there belong to the system shade pull → chip becomes un-draggable).
+            val topInset = statusBarHeightPx()
+            lp.x = lp.x.coerceIn(0, (dm.widthPixels - vw).coerceAtLeast(0))
+            lp.y = lp.y.coerceIn(topInset, (dm.heightPixels - vh).coerceAtLeast(topInset))
+        }
     }
 
     /** Status-bar height (framework dimen; sane fallback when missing). */
@@ -78,7 +105,11 @@ class FloatingChip(
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                // Without NO_LIMITS the system silently forces the window fully
+                // on-screen — half-out docking (free placement) needs it; OUR
+                // clamp() is what keeps a touchable sliver visible.
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -166,5 +197,8 @@ class FloatingChip(
     private companion object {
         /** Chip height in dp at 100% — the bubble-size slider (0.8–1.6) scales it. */
         const val BASE_HEIGHT_DP = 30f
+
+        /** Touchable sliver that must stay on screen in free-placement mode. */
+        const val MIN_VISIBLE_DP = 24f
     }
 }

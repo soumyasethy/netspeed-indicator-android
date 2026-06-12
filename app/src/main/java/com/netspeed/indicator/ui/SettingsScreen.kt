@@ -104,6 +104,8 @@ fun SettingsScreen(
     onFloatingChipToggle: (Boolean) -> Unit,
     onFloatingChipScale: (Float) -> Unit,
     onHideIconWhenBubble: (Boolean) -> Unit,
+    onBubbleFreePlacement: (Boolean) -> Unit,
+    onResetBubblePos: () -> Unit,
     dailyHistory: List<com.netspeed.indicator.data.DayUsage>,
     onStyleSelect: (IconStyle) -> Unit,
     onPanelToggle: (Boolean) -> Unit,
@@ -289,6 +291,20 @@ fun SettingsScreen(
                     onCheckedChange = { tap(); onHideIconWhenBubble(it) },
                     tierColor = tierColor,
                 )
+                ToggleRow(
+                    title = "Place bubble anywhere",
+                    subtitle = "Dock it over the status bar or half-off any edge. Heads-up: over the " +
+                        "status bar Android steals the touches — use Reset below to recover it.",
+                    checked = settings.bubbleFreePlacement,
+                    onCheckedChange = { tap(); onBubbleFreePlacement(it) },
+                    tierColor = tierColor,
+                )
+                OutlinedButton(
+                    onClick = { tap(); onResetBubblePos() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Reset bubble position")
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

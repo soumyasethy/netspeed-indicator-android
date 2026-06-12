@@ -85,6 +85,9 @@ class SpeedMeterService : LifecycleService() {
      *  higher-res so it stays crisp when scaled up by the bubble-size slider. */
     private val bubbleRenderer = IconRenderer(sizePx = 120)
 
+    /** Last STORED bubble position seen — reconcile fires only when it changes. */
+    private var lastStoredChipPos: Pair<Int, Int>? = null
+
     private fun transparentIcon(): Bitmap =
         transparentIconBitmap ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
             .also { transparentIconBitmap = it }
@@ -370,10 +373,21 @@ class SpeedMeterService : LifecycleService() {
             if (floatingChip.isShown) floatingChip.hide()
             return
         }
+        floatingChip.freePlacement = settings.bubbleFreePlacement
         if (!floatingChip.isShown) {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
         floatingChip.applyScale(settings.floatingChipScale)   // bubble-size slider, live
+        // Position reconcile — applied only when the STORED position changes
+        // (i.e. "Reset bubble position"). Comparing stored vs live every tick
+        // would race the async persist of a drag and snap the chip back.
+        val want = settings.floatingChipX to settings.floatingChipY
+        if (want != lastStoredChipPos) {
+            lastStoredChipPos = want
+            if (floatingChip.isShown && (floatingChip.posX != want.first || floatingChip.posY != want.second)) {
+                floatingChip.moveTo(want.first, want.second)
+            }
+        }
 
         val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
         bubbleRenderer.fontScale = resources.configuration.fontScale

@@ -22,6 +22,10 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 const val DEFAULT_ICON_BG = 0xFF2563EB.toInt()      // "Blue" preset swatch
 const val DEFAULT_ICON_BORDER = 0xFFFFFFFF.toInt()  // "White" preset swatch
 
+/** Default bubble spot — also the target of "Reset bubble position". */
+const val DEFAULT_CHIP_X = 24
+const val DEFAULT_CHIP_Y = 240
+
 /** User-facing toggles, read by both the UI and the service. */
 data class Settings(
     val enabled: Boolean = false,
@@ -57,8 +61,11 @@ data class Settings(
     /** Bubble size multiplier (0.8–1.6). */
     val floatingChipScale: Float = 1f,
     /** Persisted bubble position (window coordinates). */
-    val floatingChipX: Int = 24,
-    val floatingChipY: Int = 240,
+    val floatingChipX: Int = DEFAULT_CHIP_X,
+    val floatingChipY: Int = DEFAULT_CHIP_Y,
+    /** Free placement: dock the bubble over the status bar / half-out screen
+     *  edges (a touchable sliver always remains; Reset is the escape hatch). */
+    val bubbleFreePlacement: Boolean = true,
     /** Set once we detect the OS force-grouping our notifications (One UI):
      *  the dual-icon attempt is then skipped forever on this device, so the OS
      *  never creates its orphan group summary (a blank icon) again. */
@@ -109,8 +116,9 @@ class SettingsRepository(private val context: Context) {
             floatingChip = p[KEY_FLOAT_CHIP] ?: true,
             hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: true,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
-            floatingChipX = p[KEY_FLOAT_X] ?: 24,
-            floatingChipY = p[KEY_FLOAT_Y] ?: 240,
+            floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
+            floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
+            bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
             dualIconsBlocked = p[KEY_DUAL_BLOCKED] ?: false,
         )
     }
@@ -156,6 +164,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHideIconWhenBubble(value: Boolean) = edit { it[KEY_HIDE_ICON_BUBBLE] = value }
     suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.8f, 1.6f) }
     suspend fun setFloatingChipPos(x: Int, y: Int) = edit { it[KEY_FLOAT_X] = x; it[KEY_FLOAT_Y] = y }
+    suspend fun setBubbleFreePlacement(value: Boolean) = edit { it[KEY_FLOAT_FREE] = value }
+    /** "Reset bubble position": back to the default spot (never-a-blocker net). */
+    suspend fun resetFloatingChipPos() = setFloatingChipPos(DEFAULT_CHIP_X, DEFAULT_CHIP_Y)
 
     /** Records a finished day's total into the rolling 30-day history. */
     suspend fun appendDailyHistory(epochDay: Long, bytes: Long) = edit { p ->
@@ -210,6 +221,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_DUAL_BLOCKED = booleanPreferencesKey("dual_icons_blocked")
         val KEY_FLOAT_CHIP = booleanPreferencesKey("floating_chip")
         val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
+        val KEY_FLOAT_FREE = booleanPreferencesKey("bubble_free_placement")
         val KEY_FLOAT_SCALE = floatPreferencesKey("floating_chip_scale")
         val KEY_FLOAT_X = intPreferencesKey("floating_chip_x")
         val KEY_FLOAT_Y = intPreferencesKey("floating_chip_y")
