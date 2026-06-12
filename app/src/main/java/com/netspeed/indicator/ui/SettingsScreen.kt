@@ -116,6 +116,7 @@ fun SettingsScreen(
     onBubbleFx: (String) -> Unit,
     onPickLottieFile: () -> Unit,
     onBubbleFxPlacement: (String) -> Unit,
+    onHeroTextPos: (String) -> Unit,
     onClearLottieFile: () -> Unit,
     onBubbleLockSize: (Boolean) -> Unit,
     onBubbleBoxW: (Int) -> Unit,
@@ -179,6 +180,7 @@ fun SettingsScreen(
             skin = skin,
             thresholds = settings.thresholdsArray(),
             tierNames = settings.tierNames,
+            heroTextPos = settings.heroTextPos,
             modifier = Modifier.height(heroHeight),
         )
         TierScaleBar(
@@ -202,6 +204,20 @@ fun SettingsScreen(
             onLocked = onLockedTap,
             modifier = Modifier.padding(bottom = 8.dp),
         )
+        if (settings.heroTheme.isScene) {
+            // Scene themes: keep the number OFF the diorama's focal point.
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                ChipPickRow(
+                    label = "Hero text position",
+                    options = listOf(
+                        "auto" to "✨ Auto (per scene)", "left" to "⬅ Left",
+                        "center" to "◎ Centre", "right" to "➡ Right",
+                    ),
+                    selected = settings.heroTextPos,
+                    onPick = { tap(); onHeroTextPos(it) },
+                )
+            }
+        }
         // Right under the live hero: add ANY of the 5 widget styles straight to the
         // home screen (one tap → launcher's pin prompt). No digging in menus.
         AddToHomeRow(

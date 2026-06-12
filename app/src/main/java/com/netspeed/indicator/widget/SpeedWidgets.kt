@@ -45,14 +45,16 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_IMMUTABLE,
         )
         // Scene-theme hero widgets animate via a launcher-side flip-book:
-        // eight frames 125 ms apart, cycled locally by the ViewFlipper —
-        // smooth 8 fps motion from the same 1 Hz push.
+        // 24 half-resolution scene frames 42 ms apart (~24 fps), cycled locally
+        // by the ViewFlipper under a crisp full-resolution text overlay —
+        // smooth motion from the same 1 Hz push.
         val frames = if (kind == WidgetKind.HERO) {
-            WidgetPainters.renderHeroSceneFrames(widthPx, heightPx, data, FRAME_IDS.size, 0.125f)
+            WidgetPainters.renderHeroSceneFrames(widthPx, heightPx, data, FRAME_IDS.size, 0.042f)
         } else null
         val views = if (frames != null) {
             RemoteViews(context.packageName, R.layout.widget_flipbook).apply {
                 FRAME_IDS.forEachIndexed { i, viewId -> setImageViewBitmap(viewId, frames[i]) }
+                setImageViewBitmap(R.id.widget_overlay, WidgetPainters.renderHeroOverlay(widthPx, heightPx, data))
                 setOnClickPendingIntent(R.id.widget_flipbook_root, click)
             }
         } else {
@@ -66,10 +68,14 @@ abstract class SpeedWidgetProvider : AppWidgetProvider() {
 
     companion object {
         /** Flip-book frame slots in widget_flipbook.xml, in play order. */
-        private val FRAME_IDS = intArrayOf(
+        private val FRAME_IDS = listOf(
             R.id.frame_0, R.id.frame_1, R.id.frame_2, R.id.frame_3,
             R.id.frame_4, R.id.frame_5, R.id.frame_6, R.id.frame_7,
-        ).toList()
+            R.id.frame_8, R.id.frame_9, R.id.frame_10, R.id.frame_11,
+            R.id.frame_12, R.id.frame_13, R.id.frame_14, R.id.frame_15,
+            R.id.frame_16, R.id.frame_17, R.id.frame_18, R.id.frame_19,
+            R.id.frame_20, R.id.frame_21, R.id.frame_22, R.id.frame_23,
+        )
 
         /** Last frame pushed by the service — used so a freshly pinned widget
          *  renders with the right skin/theme instantly instead of default blue. */

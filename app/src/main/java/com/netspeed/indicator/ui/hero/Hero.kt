@@ -105,6 +105,7 @@ fun TierFlowHero(
     skin: ColorSkin = ColorSkin.DEFAULT,
     thresholds: FloatArray = SpeedTiers.DEFAULT_THRESHOLDS,
     tierNames: List<String> = SpeedTiers.ALL.map { it.defaultWord },
+    heroTextPos: String = "auto",
     modifier: Modifier = Modifier,
 ) {
     val dark = isSystemInDarkTheme()
@@ -169,11 +170,30 @@ fun TierFlowHero(
     // Speed-scene themes render the SAME procedural renderer the bubble and
     // widgets use — one implementation, three surfaces. The clock holder is a
     // plain array so the draw phase never writes snapshot state.
-    val scene = remember(theme) {
-        SceneRegistry.fromThemeKey(theme.storageKey)?.factory?.invoke()
-    }
+    val sceneEntry = remember(theme) { SceneRegistry.fromThemeKey(theme.storageKey) }
+    val scene = remember(theme) { sceneEntry?.factory?.invoke() }
     val sceneState = remember { SceneState() }
     val sceneClockLast = remember { floatArrayOf(0f) }
+
+    // Text rides BESIDE the scene's focal point (per-scene default, user can
+    // force a side) — the diorama stays visible instead of hiding behind the
+    // number. Non-scene themes keep the classic centered layout.
+    val textSide = if (sceneEntry == null) 0 else when (heroTextPos) {
+        "left" -> -1
+        "center" -> 0
+        "right" -> 1
+        else -> sceneEntry.heroTextSide
+    }
+    val contentAlign = when (textSide) {
+        -1 -> Alignment.CenterStart
+        1 -> Alignment.CenterEnd
+        else -> Alignment.Center
+    }
+    val scrimCenterFrac = when (textSide) {
+        -1 -> 0.2f
+        1 -> 0.8f
+        else -> 0.5f
+    }
 
     Box(
         modifier = modifier
@@ -193,29 +213,34 @@ fun TierFlowHero(
                     drawIntoCanvas {
                         scene.render(it.nativeCanvas, size.width, size.height, sceneState)
                     }
-                    // Center-weighted scrim: the hero text never fights the
-                    // scene; the edges keep the diorama bright.
-                    drawSceneScrim()
+                    // Scrim follows the text column; the rest of the diorama
+                    // stays at full brightness.
+                    drawSceneScrim(scrimCenterFrac)
                 } else {
                     // Theme ALWAYS drives the hero; skin only supplies the colours.
                     drawHeroBackground(theme, clock, smoothedMBps, gradColors, accent, dark)
                 }
             },
-        contentAlignment = Alignment.Center,
+        contentAlignment = contentAlign,
     ) {
-        when (theme) {
-            HeroTheme.TERMINAL ->
-                TerminalHero(tierWord, smoothedMBps, live, accent, history.toList())
-            HeroTheme.BRUTALIST ->
-                BrutalHero(tierWord, smoothedMBps, live, accent, dark)
-            HeroTheme.GLASS ->
-                GlassHero(tier, tierWord, smoothedMBps, live, fg)
-            HeroTheme.SPEEDTEST ->
-                SpeedtestHero(live = live, dark = dark)
-            HeroTheme.BENTO ->
-                BentoContent(tier = tier, smoothedMBps = smoothedMBps, live = live, fg = fg, mono = mono)
-            else ->
-                HeroContent(tier = tier, tierWord = tierWord, smoothedMBps = smoothedMBps, live = live, fg = fg, mono = mono)
+        Box(Modifier.padding(horizontal = if (textSide == 0) 0.dp else 28.dp)) {
+            when (theme) {
+                HeroTheme.TERMINAL ->
+                    TerminalHero(tierWord, smoothedMBps, live, accent, history.toList())
+                HeroTheme.BRUTALIST ->
+                    BrutalHero(tierWord, smoothedMBps, live, accent, dark)
+                HeroTheme.GLASS ->
+                    GlassHero(tier, tierWord, smoothedMBps, live, fg)
+                HeroTheme.SPEEDTEST ->
+                    SpeedtestHero(live = live, dark = dark)
+                HeroTheme.BENTO ->
+                    BentoContent(tier = tier, smoothedMBps = smoothedMBps, live = live, fg = fg, mono = mono)
+                else ->
+                    HeroContent(
+                        tier = tier, tierWord = tierWord, smoothedMBps = smoothedMBps,
+                        live = live, fg = fg, mono = mono, compact = textSide != 0,
+                    )
+            }
         }
     }
 }
@@ -228,9 +253,13 @@ private fun HeroContent(
     live: LiveSpeed,
     fg: Color,
     mono: Boolean,
+    compact: Boolean = false,
 ) {
     Column(
-        modifier = Modifier
+        // Side-aligned scene layouts wrap so the Box alignment can dock the
+        // column beside the diorama; the classic layout fills as before.
+        modifier = if (compact) Modifier.padding(horizontal = 24.dp)
+        else Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

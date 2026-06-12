@@ -81,15 +81,16 @@ fun DrawScope.drawHeroBackground(
 }
 
 /**
- * Center-weighted scrim drawn OVER a speed scene, UNDER the hero text: the
- * text column never fights the diorama for contrast while the edges keep the
- * scene at full brightness.
+ * Scrim drawn OVER a speed scene, UNDER the hero text: a soft radial pool of
+ * darkness centered on the TEXT COLUMN ([centerXFrac] of the width — 0.2 left,
+ * 0.5 center, 0.8 right) so the digits never fight the diorama for contrast
+ * while the scene's focal side keeps its full brightness.
  */
-fun DrawScope.drawSceneScrim() {
+fun DrawScope.drawSceneScrim(centerXFrac: Float = 0.5f) {
     drawRect(
         brush = Brush.radialGradient(
             colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
-            center = center,
+            center = Offset(size.width * centerXFrac, size.height * 0.5f),
             radius = (minOf(size.width, size.height) * 0.85f).coerceAtLeast(1f),
         ),
     )

@@ -139,6 +139,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onClearLottieFile = { persist { repo.setBubbleLottieUri("") } },
                     onBubbleFxPlacement = { v -> persist { repo.setBubbleFxPlacement(v) } },
+                    onHeroTextPos = { v -> persist { repo.setHeroTextPos(v) } },
                     onBubbleLockSize = { v -> persist { repo.setBubbleLockSize(v) } },
                     onBubbleBoxW = { v -> persist { repo.setBubbleBoxW(v) } },
                     onBubbleBoxH = { v -> persist { repo.setBubbleBoxH(v) } },

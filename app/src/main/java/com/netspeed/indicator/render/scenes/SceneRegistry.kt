@@ -12,21 +12,31 @@ object SceneRegistry {
         val id: String,
         val label: String,
         val emoji: String,
+        /** Where the hero text sits so it never covers the scene's focal point:
+         *  -1 left, 0 center, +1 right. User can override ("Hero text position"). */
+        val heroTextSide: Int,
         val factory: () -> SpeedScene,
     )
 
     val ALL: List<Entry> = listOf(
-        Entry("journey", "Journey", "🚀", ::JourneyScene),
-        Entry("comet", "Comet", "🌠", ::CometScene),
-        Entry("heartbeat", "Heartbeat", "🫀", ::HeartbeatScene),
-        Entry("manga", "Manga", "💢", ::MangaScene),
-        Entry("river", "Data river", "🌊", ::RiverScene),
-        Entry("firefly", "Fireflies", "✨", ::FireflyScene),
-        Entry("blob", "Blob", "🟣", ::BlobScene),
-        Entry("turbine", "Turbine", "🌬️", ::TurbineScene),
-        Entry("runner", "Runner", "🏃", ::RunnerScene),
-        Entry("jar", "Lightning jar", "⚡", ::JarScene),
-        Entry("tach", "Tachometer", "🏎️", ::TachScene),
+        // Journey's world rides left-of-center → text right (the demo layout).
+        Entry("journey", "Journey", "🚀", 1, ::JourneyScene),
+        Entry("comet", "Comet", "🌠", 0, ::CometScene),
+        // Orb sits dead-center → text right keeps the heartbeat visible.
+        Entry("heartbeat", "Heartbeat", "🫀", 1, ::HeartbeatScene),
+        // Focal dot at 62% width → text left of the burst.
+        Entry("manga", "Manga", "💢", -1, ::MangaScene),
+        Entry("river", "Data river", "🌊", 0, ::RiverScene),
+        Entry("firefly", "Fireflies", "✨", -1, ::FireflyScene),
+        // Blob at 45% width → text right.
+        Entry("blob", "Blob", "🟣", 1, ::BlobScene),
+        // Turbine at 60% width → text left.
+        Entry("turbine", "Turbine", "🌬️", -1, ::TurbineScene),
+        // Runner at 45% width → text right.
+        Entry("runner", "Runner", "🏃", 1, ::RunnerScene),
+        // Jar centered → text right.
+        Entry("jar", "Lightning jar", "⚡", 1, ::JarScene),
+        Entry("tach", "Tachometer", "🏎️", 0, ::TachScene),
     )
 
     const val THEME_PREFIX = "scene_"

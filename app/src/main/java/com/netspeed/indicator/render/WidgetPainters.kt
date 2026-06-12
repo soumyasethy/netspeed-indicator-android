@@ -78,15 +78,49 @@ object WidgetPainters {
      * still frame once per second instead.) Default/unknown key = Tier-flow look.
      */
     /**
-     * Flip-book frames for a scene-theme hero widget: [frames] full hero frames
-     * stepped [dtS] apart from "now", cycled launcher-side by a ViewFlipper —
-     * smooth motion without raising the 1 Hz push rate. Null for non-scene
-     * themes (single-frame path applies).
+     * Flip-book frames for a scene-theme hero widget: [frames] SCENE-ONLY
+     * frames at HALF resolution (the dioramas are soft — the launcher scales
+     * them up invisibly), stepped [dtS] apart from "now" and cycled
+     * launcher-side by a ViewFlipper at ~24 fps. The crisp scrim + text ride
+     * in a single full-resolution overlay ([renderHeroOverlay]) so 24 frames
+     * cost roughly what 8 full-resolution ones did. Null for non-scene themes.
      */
     fun renderHeroSceneFrames(w: Int, h: Int, d: WidgetData, frames: Int, dtS: Float): List<Bitmap>? {
-        SceneRegistry.fromThemeKey(d.themeKey) ?: return null
+        val entry = SceneRegistry.fromThemeKey(d.themeKey) ?: return null
         val base = (android.os.SystemClock.elapsedRealtime() % 3_600_000L) / 1000f
-        return List(frames) { i -> hero(w, h, d, sceneTimeS = base + i * dtS) }
+        val sw = (w / 2).coerceAtLeast(1)
+        val sh = (h / 2).coerceAtLeast(1)
+        return List(frames) { i ->
+            val bmp = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            val r = sh * 0.16f
+            val clip = Path().apply {
+                addRoundRect(RectF(0f, 0f, sw.toFloat(), sh.toFloat()), r, r, Path.Direction.CW)
+            }
+            c.save()
+            c.clipPath(clip)
+            drawSceneMotif(c, sw.toFloat(), sh.toFloat(), d, entry, base + i * dtS)
+            c.restore()
+            bmp
+        }
+    }
+
+    /** Full-resolution transparent overlay for the flip-book: scrim + texts. */
+    fun renderHeroOverlay(w: Int, h: Int, d: WidgetData): Bitmap {
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val wf = w.toFloat()
+        val hf = h.toFloat()
+        val r = h * 0.16f
+        val clip = Path().apply { addRoundRect(RectF(0f, 0f, wf, hf), r, r, Path.Direction.CW) }
+        c.save()
+        c.clipPath(clip)
+        val fg = if (d.heroFgArgb != 0) d.heroFgArgb else white
+        val fg60 = (fg and 0x00FFFFFF) or (0x99 shl 24)
+        sceneScrim(c, wf, hf)
+        heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+        c.restore()
+        return bmp
     }
 
     fun hero(w: Int, h: Int, d: WidgetData, sceneTimeS: Float = -1f): Bitmap {
