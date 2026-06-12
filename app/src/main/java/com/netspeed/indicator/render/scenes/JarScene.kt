@@ -29,7 +29,7 @@ class JarScene : SpeedScene {
     private var boltSeed = 1
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
@@ -39,8 +39,8 @@ class JarScene : SpeedScene {
         }
 
         val jx = w / 2f
-        val jt = 14f * k
-        val jb = h - 8f * k
+        val jt = h * 14f / 70f
+        val jb = h * 62f / 70f
         val jw = 27f * k        // half-width: jar spans 54 ref units
 
         // Charge-level glow filling the glass.

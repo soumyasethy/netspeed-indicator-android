@@ -76,7 +76,7 @@ class JourneyScene : SpeedScene {
     }
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
         val tb = s.tierProgress.coerceIn(0f, 4f)
         val t = s.timeS
@@ -181,7 +181,7 @@ class JourneyScene : SpeedScene {
         for (i in 0 until ns) {
             val x = w + 20f * k - ((t * sVel + streakO[i] * sSpan) % sSpan)
             paint.color = argbWithAlpha(WHITE, streakA[i])
-            canvas.drawLine(x, streakY[i] * k, x + streakL[i] * (0.5f + sc) * k, streakY[i] * k, paint)
+            canvas.drawLine(x, h * streakY[i] / 70f, x + streakL[i] * (0.5f + sc) * k, h * streakY[i] / 70f, paint)
         }
         paint.style = Paint.Style.FILL
 

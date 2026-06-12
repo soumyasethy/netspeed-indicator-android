@@ -31,7 +31,7 @@ class TachScene : SpeedScene {
     private var prevTier = -1
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
 
         if (!s.transparentBg) {
             paint.style = Paint.Style.FILL
@@ -80,8 +80,8 @@ class TachScene : SpeedScene {
             if (on && i >= 16 && strobeOff) color = argbWithAlpha(0xFFEF4444.toInt(), 0.25f)
             paint.color = color
             val left = bx + i * bw
-            val top = (26f - i * 0.5f) * k
-            rect.set(left, top, left + bw - 2f * k, top + (18f + i) * k)
+            val top = h * (26f - i * 0.5f) / 70f
+            rect.set(left, top, left + bw - 2f * k, top + h * (18f + i) / 70f)
             canvas.drawRoundRect(rect, 2f * k, 2f * k, paint)
         }
 
@@ -108,7 +108,7 @@ class TachScene : SpeedScene {
         // RPM caption.
         labelPaint.textAlign = Paint.Align.LEFT
         labelPaint.textSize = 8f * k
-        canvas.drawText("RPM", bx, 16f * k, labelPaint)
+        canvas.drawText("RPM", bx, h * 16f / 70f, labelPaint)
         labelPaint.textAlign = Paint.Align.CENTER
     }
 

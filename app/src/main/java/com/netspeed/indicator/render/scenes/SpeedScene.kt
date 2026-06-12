@@ -83,6 +83,16 @@ class SceneRng(seed: Int = 1) {
     }
 }
 
+/**
+ * Scene scale factor. The reference frame is 208x70 (3:1): short-wide surfaces
+ * (bubble, widget) scale by height as designed, but TALL surfaces (the ~square
+ * hero) must cap by width too or every element zooms ~3x and key actors crop
+ * off the right edge. The 1.4 headroom keeps wide surfaces pixel-identical
+ * while taming tall ones.
+ */
+internal fun sceneScale(w: Float, h: Float): Float =
+    minOf(h / 70f, 1.4f * w / 208f)
+
 /** alpha 0..1 applied onto an opaque ARGB color — render-path helper, no alloc. */
 internal fun argbWithAlpha(argb: Int, alpha: Float): Int {
     val a = (alpha.coerceIn(0f, 1f) * 255f).toInt()

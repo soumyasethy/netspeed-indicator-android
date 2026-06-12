@@ -42,7 +42,7 @@ class CometScene : SpeedScene {
     }
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
 
         paint.style = Paint.Style.FILL

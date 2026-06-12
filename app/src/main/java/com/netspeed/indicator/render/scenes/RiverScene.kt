@@ -40,7 +40,7 @@ class RiverScene : SpeedScene {
     }
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
 
         paint.style = Paint.Style.FILL
@@ -52,7 +52,7 @@ class RiverScene : SpeedScene {
         // Three lane strips: 10-wide white 6% lines at y 18/35/52 in ref space.
         paint.color = 0x0FFFFFFF
         for (l in 0 until 3) {
-            val yc = (18f + l * 17f) * k
+            val yc = h * (18f + l * 17f) / 70f
             canvas.drawRect(0f, yc - 5f * k, w, yc + 5f * k, paint)
         }
 
@@ -91,7 +91,7 @@ class RiverScene : SpeedScene {
                 isBad = sc < 0.08f && flickRng.next() < 0.3f
             }
 
-            val yc = (18f + lane[i] * 17f) * k
+            val yc = h * (18f + lane[i] * 17f) / 70f
             paint.color = if (isBad) argbWithAlpha(0xFFEF4444.toInt(), 0.9f)
             else argbWithAlpha(s.accentArgb, 0.9f)
             rect.set(px - 4f * k - grow, yc - 3.5f * k - grow, px + 4f * k + grow, yc + 3.5f * k + grow)

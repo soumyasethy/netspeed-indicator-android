@@ -34,7 +34,7 @@ class BlobScene : SpeedScene {
     private var blinkGapS = 3f + rng.next() * 3f
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
 
         if (!s.transparentBg) {

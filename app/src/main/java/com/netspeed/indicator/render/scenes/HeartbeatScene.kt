@@ -23,7 +23,7 @@ class HeartbeatScene : SpeedScene {
     private val ringA = FloatArray(RINGS)
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
         val cx = w / 2f
         val cy = h / 2f

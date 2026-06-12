@@ -43,7 +43,7 @@ class FireflyScene : SpeedScene {
     }
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val e = s.sc
         val t = s.timeS
 

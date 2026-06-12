@@ -32,7 +32,7 @@ class TurbineScene : SpeedScene {
     private var skyH = -1f
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
         val night = s.dark
 

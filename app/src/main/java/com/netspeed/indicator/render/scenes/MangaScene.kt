@@ -24,7 +24,7 @@ class MangaScene : SpeedScene {
     private var flashFrames = 0
 
     override fun render(canvas: Canvas, w: Float, h: Float, s: SceneState) {
-        val k = h / 70f
+        val k = sceneScale(w, h)
         val sc = s.sc
         val ink = if (s.dark) WHITE else INK   // INK doubles as the dark paper
 
