@@ -406,46 +406,6 @@ fun SettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "Bubble size",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            "${(settings.floatingChipScale * 100).toInt()}%",
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                        )
-                    }
-                    Slider(
-                        value = settings.floatingChipScale,
-                        onValueChange = { onFloatingChipScale(((it * 20f).toInt() / 20f)) },
-                        valueRange = 0.5f..1.6f,
-                        steps = 21,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Bubble width",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            "${(settings.floatingChipPadScale * 100).toInt()}%",
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                        )
-                    }
-                    Slider(
-                        value = settings.floatingChipPadScale,
-                        onValueChange = { onFloatingChipPadScale(((it * 20f).toInt() / 20f)) },
-                        valueRange = 1f..2.5f,
-                        steps = 29,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
                             "Letter spacing",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -467,7 +427,7 @@ fun SettingsScreen(
                 }
                 ToggleRow(
                     title = "Lock bubble size",
-                    subtitle = "Freezes the badge at its CURRENT size — text auto-scales to fill it. Tune from tiny to full-width below.",
+                    subtitle = "THE size control: freezes the badge at its current size, then tune width and height below — tiny to full-width. Text auto-scales to fill.",
                     checked = settings.bubbleLockSize,
                     onCheckedChange = { tap(); onBubbleLockSize(it) },
                     tierColor = tierColor,

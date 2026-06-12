@@ -116,23 +116,49 @@ fun StudioScreen(
     val downBps = if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 1_258_291L
     val upBps = if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 245_760L
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
+    Column(Modifier.fillMaxSize()) {
+        // Header band: skin-tinted gradient, pill back button, big title.
+        Box(
+            Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Column {
-                Text("Style Studio", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Every card is live — what you see is what you get",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
+                            androidx.compose.ui.graphics.Color.Transparent,
+                        ),
+                    ),
                 )
+                .statusBarsPadding()
+                .padding(start = 12.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            androidx.compose.foundation.shape.CircleShape,
+                        ),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Spacer(Modifier.size(14.dp))
+                Column {
+                    Text(
+                        "Style Studio",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "${HeroTheme.entries.size} themes · ${ColorSkin.entries.size} skins · " +
+                            "${SceneRegistry.ALL.size} scenes — every card is live",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    )
+                }
             }
         }
 
