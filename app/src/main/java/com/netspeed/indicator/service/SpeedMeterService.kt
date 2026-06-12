@@ -545,8 +545,18 @@ class SpeedMeterService : LifecycleService() {
                 themeKey = settings.heroTheme.storageKey,
                 heroFgArgb = settings.colorSkin.heroFg.toArgb(),
                 tierThresholds = settings.tierThresholds,
+                textH = widgetTextPos().first,
+                textV = widgetTextPos().second,
             ),
         )
+    }
+
+    /** Resolved widget text placement: user grid choice, or auto (scene side /
+     *  classic left — the widget's traditional layout). */
+    private fun widgetTextPos(): Pair<Int, Int> {
+        val sceneSide = com.netspeed.indicator.render.scenes.SceneRegistry
+            .fromThemeKey(settings.heroTheme.storageKey)?.heroTextSide ?: -1
+        return com.netspeed.indicator.core.SpeedStats.parseTextPos(settings.heroTextPos, sceneSide)
     }
 
     /** True while a Pause or an unexpired Hide-1h is in effect. */

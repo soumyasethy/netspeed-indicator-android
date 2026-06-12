@@ -86,11 +86,11 @@ fun DrawScope.drawHeroBackground(
  * 0.5 center, 0.8 right) so the digits never fight the diorama for contrast
  * while the scene's focal side keeps its full brightness.
  */
-fun DrawScope.drawSceneScrim(centerXFrac: Float = 0.5f) {
+fun DrawScope.drawSceneScrim(centerXFrac: Float = 0.5f, centerYFrac: Float = 0.5f) {
     drawRect(
         brush = Brush.radialGradient(
             colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
-            center = Offset(size.width * centerXFrac, size.height * 0.5f),
+            center = Offset(size.width * centerXFrac, size.height * centerYFrac),
             radius = (minOf(size.width, size.height) * 0.85f).coerceAtLeast(1f),
         ),
     )

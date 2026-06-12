@@ -48,6 +48,9 @@ data class WidgetData(
     val heroFgArgb: Int = 0,
     /** User tier thresholds (MB/s) — speed scenes need exact tier bounds. */
     val tierThresholds: List<Float> = listOf(1f, 5f, 15f, 30f),
+    /** Text block placement: horizontal -1/0/1, vertical -1/0/1 (resolved). */
+    val textH: Int = -1,
+    val textV: Int = 0,
 )
 
 enum class WidgetKind { HERO, DIAL, RINGS, PILL, WEATHER }
@@ -173,7 +176,7 @@ object WidgetPainters {
         val fg = if (d.heroFgArgb != 0) d.heroFgArgb else white
         val fg60 = (fg and 0x00FFFFFF) or (0x99 shl 24)
         sceneScrim(c, wf, hf)
-        heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+        heroTexts(c, w, h, d, fg, fg60, sparkline = false, hPos = d.textH, vPos = d.textV)
         c.restore()
         return bmp
     }
@@ -200,7 +203,7 @@ object WidgetPainters {
             // cycles 8 of these launcher-side). Scrim keeps text legible.
             drawSceneMotif(c, wf, hf, d, sceneEntry, sceneTimeS)
             sceneScrim(c, wf, hf)
-            heroTexts(c, w, h, d, fg, fg60, sparkline = false)
+            heroTexts(c, w, h, d, fg, fg60, sparkline = false, hPos = d.textH, vPos = d.textV)
         } else when (d.themeKey) {
             "kinetic" -> {                       // calm gradient, nothing but the number
                 drawFlow(c, wf, hf, d)
@@ -388,13 +391,15 @@ object WidgetPainters {
     private fun heroTexts(
         c: Canvas, w: Int, h: Int, d: WidgetData, fg: Int, fg60: Int,
         sparkline: Boolean, leftFrac: Float = 0.06f,
+        hPos: Int = -1, vPos: Int = 0,
     ) {
         val pad = w * leftFrac
         val rightEdge = w - w * 0.06f
+        val vOff = h * 0.15f * vPos          // -1 top / 0 centre / +1 bottom
         val todayPaint = text(h * 0.10f, fg60, align = Paint.Align.RIGHT)
         val todayText = "${SpeedFormatter.total(d.todayBytes)} today"
         c.drawText(todayText, rightEdge, h * 0.18f, todayPaint)
-        if (leftFrac <= 0.06f) {
+        if (leftFrac <= 0.06f && hPos == -1 && vPos != -1) {
             // Brand fits only when the block starts at the edge; measured guard so
             // it can never touch the right-aligned today figure.
             val brand = text(h * 0.10f, fg60, align = Paint.Align.LEFT)
@@ -415,14 +420,23 @@ object WidgetPainters {
             unitPaint = text(h * 0.12f * s, fg60, align = Paint.Align.LEFT)
             rowW = avail
         }
-        c.drawText(num.value, pad, h * 0.56f, numPaint)
+        // Horizontal anchor for the whole block: left edge / centred / right edge.
+        fun originX(width: Float): Float = when (hPos) {
+            0 -> (w - width) / 2f
+            1 -> rightEdge - width
+            else -> pad
+        }
+        val numY = (h * 0.56f + vOff).coerceIn(h * 0.34f, h * 0.72f)
+        val ox = originX(rowW)
+        c.drawText(num.value, ox, numY, numPaint)
         val numW = numPaint.measureText(num.value)
-        c.drawText(num.unit, pad + numW + w * 0.02f, h * 0.56f, unitPaint)
-        c.drawText(
-            "▲ ${SpeedFormatter.inline(d.upBps)}", pad, h * 0.80f,
-            text(h * 0.11f, fg60, align = Paint.Align.LEFT),
-        )
-        if (sparkline) {
+        c.drawText(num.unit, ox + numW + w * 0.02f, numY, unitPaint)
+        val upPaint = text(h * 0.11f, fg60, align = Paint.Align.LEFT)
+        val upText = "▲ ${SpeedFormatter.inline(d.upBps)}" +
+            if (d.peakBps > 0) "  ·  pk ${SpeedFormatter.inline(d.peakBps)}" else ""
+        val upY = (h * 0.80f + vOff).coerceIn(h * 0.58f, h * 0.94f)
+        c.drawText(upText, originX(upPaint.measureText(upText)), upY, upPaint)
+        if (sparkline && hPos == -1 && vPos == 0) {
             val textRight = pad + numW + w * 0.02f + unitPaint.measureText(num.unit)
             drawSparkline(
                 c, d.history,

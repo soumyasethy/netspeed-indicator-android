@@ -175,25 +175,15 @@ fun TierFlowHero(
     val sceneState = remember { SceneState() }
     val sceneClockLast = remember { floatArrayOf(0f) }
 
-    // Text rides BESIDE the scene's focal point (per-scene default, user can
-    // force a side) — the diorama stays visible instead of hiding behind the
-    // number. Non-scene themes keep the classic centered layout.
-    val textSide = if (sceneEntry == null) 0 else when (heroTextPos) {
-        "left" -> -1
-        "center" -> 0
-        "right" -> 1
-        else -> sceneEntry.heroTextSide
-    }
-    val contentAlign = when (textSide) {
-        -1 -> Alignment.CenterStart
-        1 -> Alignment.CenterEnd
-        else -> Alignment.Center
-    }
-    val scrimCenterFrac = when (textSide) {
-        -1 -> 0.2f
-        1 -> 0.8f
-        else -> 0.5f
-    }
+    // Text position: full 3x3 grid (corners, edges, center) for ANY theme.
+    // "auto" docks beside a scene's focal point (per-scene default) and
+    // centers on classic themes. The scrim follows the text column.
+    val (textH, textV) = com.netspeed.indicator.core.SpeedStats.parseTextPos(
+        heroTextPos, sceneEntry?.heroTextSide ?: 0,
+    )
+    val contentAlign = androidx.compose.ui.BiasAlignment(textH * 0.9f, textV * 0.75f)
+    val scrimCenterX = 0.5f + textH * 0.3f
+    val scrimCenterY = 0.5f + textV * 0.2f
 
     Box(
         modifier = modifier
@@ -215,7 +205,7 @@ fun TierFlowHero(
                     }
                     // Scrim follows the text column; the rest of the diorama
                     // stays at full brightness.
-                    drawSceneScrim(scrimCenterFrac)
+                    drawSceneScrim(scrimCenterX, scrimCenterY)
                 } else {
                     // Theme ALWAYS drives the hero; skin only supplies the colours.
                     drawHeroBackground(theme, clock, smoothedMBps, gradColors, accent, dark)
@@ -223,7 +213,17 @@ fun TierFlowHero(
             },
         contentAlignment = contentAlign,
     ) {
-        Box(Modifier.padding(horizontal = if (textSide == 0) 0.dp else 28.dp)) {
+        // Passive connection stats from the rolling samples (no INTERNET perm —
+        // RTT probing is impossible by design; this is throughput consistency).
+        val statsLine = if (history.size >= 5) {
+            val samples = history.toList()
+            val p90 = com.netspeed.indicator.core.SpeedStats.p90(samples)
+            val jit = com.netspeed.indicator.core.SpeedStats.jitter(samples)
+            "peak " + SpeedFormatter.inline(live.peakBytesPerSec) +
+                "  ·  p90 " + String.format("%.1f", p90) + " MB/s" +
+                "  ·  jitter ±" + String.format("%.1f", jit)
+        } else null
+        Box(Modifier.padding(horizontal = if (textH == 0) 0.dp else 28.dp, vertical = if (textV == 0) 0.dp else 22.dp)) {
             when (theme) {
                 HeroTheme.TERMINAL ->
                     TerminalHero(tierWord, smoothedMBps, live, accent, history.toList())
@@ -238,7 +238,8 @@ fun TierFlowHero(
                 else ->
                     HeroContent(
                         tier = tier, tierWord = tierWord, smoothedMBps = smoothedMBps,
-                        live = live, fg = fg, mono = mono, compact = textSide != 0,
+                        live = live, fg = fg, mono = mono, compact = textH != 0 || textV != 0,
+                        statsLine = statsLine,
                     )
             }
         }
@@ -254,6 +255,7 @@ private fun HeroContent(
     fg: Color,
     mono: Boolean,
     compact: Boolean = false,
+    statsLine: String? = null,
 ) {
     Column(
         // Side-aligned scene layouts wrap so the Box alignment can dock the
@@ -282,6 +284,15 @@ private fun HeroContent(
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
         )
+        if (statsLine != null) {
+            Spacer(Modifier.size(4.dp))
+            androidx.compose.material3.Text(
+                text = statsLine,
+                color = fg.copy(alpha = 0.55f),
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

@@ -202,19 +202,13 @@ fun SettingsScreen(
             onOpenStudio = { tap(); onOpenStudio() },
             modifier = Modifier.padding(vertical = 8.dp),
         )
-        if (settings.heroTheme.isScene) {
-            // Scene themes: keep the number OFF the diorama's focal point.
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-                ChipPickRow(
-                    label = "Hero text position",
-                    options = listOf(
-                        "auto" to "✨ Auto (per scene)", "left" to "⬅ Left",
-                        "center" to "◎ Centre", "right" to "➡ Right",
-                    ),
-                    selected = settings.heroTextPos,
-                    onPick = { tap(); onHeroTextPos(it) },
-                )
-            }
+        // Text position: Auto or any of the 9 grid spots — applies to the hero
+        // banner AND the hero widget.
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            TextPosPicker(
+                selected = settings.heroTextPos,
+                onPick = { tap(); onHeroTextPos(it) },
+            )
         }
         // Right under the live hero: add ANY of the 5 widget styles straight to the
         // home screen (one tap → launcher's pin prompt). No digging in menus.
@@ -1870,6 +1864,70 @@ private fun InlineThemesRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Auto chip + 3x3 grid: exact text placement for hero banner and widget. */
+@Composable
+private fun TextPosPicker(selected: String, onPick: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Text position — hero banner & widget",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            val autoOn = selected == "auto"
+            Text(
+                "✨ Auto",
+                fontSize = 12.sp,
+                color = if (autoOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (autoOn) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    )
+                    .selectable(selected = autoOn, onClick = { onPick("auto") })
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(listOf("tl", "tc", "tr"), listOf("cl", "cc", "cr"), listOf("bl", "bc", "br")).forEach { rowKeys ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        rowKeys.forEach { key ->
+                            val on = selected == key
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (on) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    )
+                                    .selectable(selected = on, onClick = { onPick(key) }),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(7.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(
+                                            if (on) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                        ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Text(
+                "Pick the exact corner,\nedge or centre",
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+            )
         }
     }
 }
