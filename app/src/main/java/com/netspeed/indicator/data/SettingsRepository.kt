@@ -56,8 +56,10 @@ data class Settings(
     val iconBorderWidth: Int = 1,
     /** Floating draggable speed bubble drawn over any app (needs overlay permission). */
     val floatingChip: Boolean = true,
-    /** Hide the status-bar icon while the bubble is visible (panel row stays). */
-    val hideIconWhenBubble: Boolean = true,
+    /** Hide the status-bar icon while the bubble is visible (panel row stays).
+     *  Default OFF: combined with the default-on bubble, a true default suppressed
+     *  the bar icon on fresh installs ("where is my speed?"). Opt-in dedupe. */
+    val hideIconWhenBubble: Boolean = false,
     /** Bubble size multiplier (0.8–1.6). */
     val floatingChipScale: Float = 1f,
     /** Persisted bubble position (window coordinates). */
@@ -114,7 +116,7 @@ class SettingsRepository(private val context: Context) {
             iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: DEFAULT_ICON_BORDER,
             iconBorderWidth = (p[KEY_ICON_BORDER_WIDTH] ?: 1).coerceIn(1, 3),
             floatingChip = p[KEY_FLOAT_CHIP] ?: true,
-            hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: true,
+            hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: false,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.8f, 1.6f),
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,

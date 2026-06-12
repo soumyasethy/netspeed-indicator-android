@@ -759,7 +759,9 @@ private fun IconStyleCard(
             Text(
                 text = "Pick how the speed looks in the status bar. Colours show in full on the " +
                     "floating bubble and here; Android repaints the tiny status-bar icon itself " +
-                    "in one colour, so there the chip shows as its shape with cut-out digits.",
+                    "in one colour (on every screen, not just the lock screen — no app can opt " +
+                    "out), so there the chip shows as its shape with cut-out digits. Want a " +
+                    "full-colour readout in the bar? Drag the floating bubble up into it.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
