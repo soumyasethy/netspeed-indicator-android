@@ -6,6 +6,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_image"
-    android:previewImage="@drawable/widget_prev_dial"
+    android:previewImage="@drawable/widget_prev_rings"
     android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_prev_rings_desc"
     android:widgetCategory="home_screen" />

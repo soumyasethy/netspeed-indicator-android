@@ -6,6 +6,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_image"
-    android:previewImage="@drawable/widget_prev_dark"
+    android:previewImage="@drawable/widget_prev_weather"
     android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_prev_weather_desc"
     android:widgetCategory="home_screen" />

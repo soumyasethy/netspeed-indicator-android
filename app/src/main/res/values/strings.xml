@@ -56,4 +56,9 @@
     <string name="perm_banner_body">The speed indicator is drawn as a notification icon, so it can\'t show until you allow notifications.</string>
     <string name="perm_banner_action">Grant</string>
     <string name="perm_rationale">NetSpeed draws the live speed as the status-bar notification icon. Allow notifications so the indicator can appear.</string>
+    <string name="widget_prev_hero_desc">Live hero banner — your theme, scene and colours, animated</string>
+    <string name="widget_prev_dial_desc">Speed dial — download rate on a gauge</string>
+    <string name="widget_prev_rings_desc">Activity rings — download, upload and daily quota</string>
+    <string name="widget_prev_pill_desc">Minimal pill — just the live download number</string>
+    <string name="widget_prev_weather_desc">Weather-style card — tier word plus speed</string>
 </resources>
