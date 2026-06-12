@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
                         pickLottie.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
                     },
                     onClearLottieFile = { persist { repo.setBubbleLottieUri("") } },
+                    onBubbleFxPlacement = { v -> persist { repo.setBubbleFxPlacement(v) } },
                     onBubbleLockSize = { v -> persist { repo.setBubbleLockSize(v) } },
                     onBubbleBoxW = { v -> persist { repo.setBubbleBoxW(v) } },
                     onBubbleBoxH = { v -> persist { repo.setBubbleBoxH(v) } },

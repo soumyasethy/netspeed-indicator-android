@@ -19,7 +19,8 @@ enum class HeroTheme(val storageKey: String, val label: String) {
     BENTO("bento", "Bento"),
     TERMINAL("terminal", "Terminal"),
     BRUTALIST("brutalist", "Brutalist"),
-    GLASS("glass", "Glass");
+    GLASS("glass", "Glass"),
+    SPEEDTEST("speedtest", "Speedtest");
 
     companion object {
         val DEFAULT = KINETIC

@@ -421,6 +421,7 @@ class SpeedMeterService : LifecycleService() {
             return
         }
         floatingChip.freePlacement = settings.bubbleFreePlacement
+        floatingChip.fxPlacement = settings.bubbleFxPlacement
         if (!floatingChip.isShown) {
             floatingChip.show(settings.floatingChipX, settings.floatingChipY, settings.floatingChipScale)
         }
@@ -431,10 +432,18 @@ class SpeedMeterService : LifecycleService() {
         } else null
 
         val accent = SpeedTiers.tierOf(downShown / 1_048_576f).c2.toArgb()
+        val fxActive = settings.bubbleFx != "none"
         bubbleRenderer.fontScale = resources.configuration.fontScale
         bubbleRenderer.userScale = settings.iconTextScale
-        bubbleRenderer.bgColorArgb =
-            if (Color.alpha(settings.iconBgColor) != 0) settings.iconBgColor else 0xE6101218.toInt()
+        // With an active effect the user's TRUE background applies — transparent
+        // means the animation IS the background (digits get a shadow halo for
+        // legibility). Without fx, transparent falls back to a readable pill.
+        bubbleRenderer.bgColorArgb = when {
+            Color.alpha(settings.iconBgColor) != 0 -> settings.iconBgColor
+            fxActive -> 0
+            else -> 0xE6101218.toInt()
+        }
+        bubbleRenderer.glyphShadow = fxActive && Color.alpha(settings.iconBgColor) == 0
         bubbleRenderer.fgColorArgb =
             if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         bubbleRenderer.unitStyle = settings.iconUnitStyle

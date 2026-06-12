@@ -74,6 +74,8 @@ data class Settings(
     val bubbleFx: String = "none",
     /** Custom Lottie scene file (SAF uri); "" = the bundled paper-plane. */
     val bubbleLottieUri: String = "",
+    /** Scene placement: behind the text, or beside it (left/right slot). */
+    val bubbleFxPlacement: String = "behind",
     /** Fixed-size badge mode: lock the bubble box; content auto-fits inside. */
     val bubbleLockSize: Boolean = false,
     /** Locked box dimensions in dp. */
@@ -141,6 +143,7 @@ class SettingsRepository(private val context: Context) {
             bubbleTracking = (p[KEY_BUBBLE_TRACKING] ?: 0f).coerceIn(0f, 0.12f),
             bubbleFx = p[KEY_BUBBLE_FX] ?: "none",
             bubbleLottieUri = p[KEY_BUBBLE_LOTTIE] ?: "",
+            bubbleFxPlacement = p[KEY_BUBBLE_FX_PLACE] ?: "behind",
             bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: false,
             bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 140).coerceIn(60, 280),
             bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 48).coerceIn(28, 120),
@@ -196,6 +199,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBubbleTracking(v: Float) = edit { it[KEY_BUBBLE_TRACKING] = v.coerceIn(0f, 0.12f) }
     suspend fun setBubbleFx(v: String) = edit { it[KEY_BUBBLE_FX] = v }
     suspend fun setBubbleLottieUri(v: String) = edit { it[KEY_BUBBLE_LOTTIE] = v }
+    suspend fun setBubbleFxPlacement(v: String) = edit { it[KEY_BUBBLE_FX_PLACE] = v }
     suspend fun setBubbleLockSize(v: Boolean) = edit { it[KEY_BUBBLE_LOCK] = v }
     suspend fun setBubbleBoxW(v: Int) = edit { it[KEY_BUBBLE_BOX_W] = v.coerceIn(60, 280) }
     suspend fun setBubbleBoxH(v: Int) = edit { it[KEY_BUBBLE_BOX_H] = v.coerceIn(28, 120) }
@@ -265,6 +269,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_BUBBLE_TRACKING = floatPreferencesKey("bubble_tracking")
         val KEY_BUBBLE_FX = stringPreferencesKey("bubble_fx")
         val KEY_BUBBLE_LOTTIE = stringPreferencesKey("bubble_lottie_uri")
+        val KEY_BUBBLE_FX_PLACE = stringPreferencesKey("bubble_fx_placement")
         val KEY_BUBBLE_LOCK = booleanPreferencesKey("bubble_lock_size")
         val KEY_BUBBLE_BOX_W = intPreferencesKey("bubble_box_w")
         val KEY_BUBBLE_BOX_H = intPreferencesKey("bubble_box_h")

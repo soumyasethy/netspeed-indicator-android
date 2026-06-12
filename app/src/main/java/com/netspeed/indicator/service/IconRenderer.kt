@@ -84,6 +84,10 @@ class IconRenderer(private val sizePx: Int = 96) {
     var letterSpacingEm: Float = 0f
         set(value) { field = value.coerceIn(0f, 0.2f) }
 
+    /** Dark halo behind the glyphs — keeps text readable when it floats over an
+     *  animated scene with a transparent background (bubble only). */
+    var glyphShadow: Boolean = false
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
@@ -162,8 +166,12 @@ class IconRenderer(private val sizePx: Int = 96) {
             paint.color = fgColorArgb
             paint.typeface = glyphTypeface
             paint.letterSpacing = letterSpacingEm
+            if (glyphShadow) paint.setShadowLayer(sizePx * 0.06f, 0f, 0f, 0xCC000000.toInt())
+            else paint.clearShadowLayer()
         }
         arrowPaint.color = fgColorArgb
+        if (glyphShadow) arrowPaint.setShadowLayer(sizePx * 0.06f, 0f, 0f, 0xCC000000.toInt())
+        else arrowPaint.clearShadowLayer()
         bgPaint.color = bgColorArgb
         borderPaint.color = borderColorArgb
     }

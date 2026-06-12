@@ -47,6 +47,16 @@ class BubbleFxView(context: Context) : View(context) {
     private var lottie: LottieDrawable? = null
     private var lastFrameMs = 0L
 
+    /** Scene placement: BEHIND the chip (full-view backdrop) or a slot LEFT /
+     *  RIGHT of it (mascot-beside-the-number, Cloudflare-rabbit style). Applies
+     *  to the Lottie scene; aura effects (flame/glow/sparks) are always behind. */
+    var placement: String = "behind"
+        set(value) { if (field != value) { field = value; requestLayout() } }
+
+    /** Width of the side slot when placement is left/right. */
+    private fun sideSlotW(c: Bitmap): Int =
+        if (fx == Fx.LOTTIE && placement != "behind") (c.height * 1.4f).roundToInt() else 0
+
     /** 0..1 — how hard the network is working; drives every effect. */
     var intensity: Float = 0f
         set(value) {
@@ -136,6 +146,12 @@ class BubbleFxView(context: Context) : View(context) {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val c = chip
         if (c == null) { setMeasuredDimension(1, 1); return }
+        val slot = sideSlotW(c)
+        if (slot > 0) {
+            // Side placement: [scene][chip] row, no aura margins needed.
+            setMeasuredDimension(c.width + slot, c.height)
+            return
+        }
         val pad = fxPad()
         setMeasuredDimension(c.width + pad * 2, c.height + pad * 2)
     }
@@ -165,16 +181,31 @@ class BubbleFxView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         val c = chip ?: return
+        val slot = sideSlotW(c)
+        if (slot > 0) {
+            // Mascot-beside-the-number: scene in its slot, chip alongside.
+            val sceneLeft = if (placement == "left") 0 else c.width
+            val chipLeft = if (placement == "left") slot else 0
+            // Scene stays visible when idle too — a STATIC frame (the loop is
+            // stopped, so this costs nothing); it only animates under traffic.
+            lottie?.let { d ->
+                d.setBounds(sceneLeft, 0, sceneLeft + slot, height)
+                d.draw(canvas)
+            }
+            canvas.drawBitmap(c, chipLeft.toFloat(), 0f, bmpPaint)
+            return
+        }
         val pad = fxPad().toFloat()
         if (running) when (fx) {
             Fx.FLAME -> drawFlames(canvas, pad, c)
             Fx.GLOW -> drawGlow(canvas, pad, c)
             Fx.SPARKS -> drawSparks(canvas, pad, c)
-            Fx.LOTTIE -> lottie?.let { d ->
-                d.setBounds(0, 0, width, height)
-                d.draw(canvas)
-            }
+            Fx.LOTTIE -> Unit   // drawn below, also when idle (static frame)
             Fx.NONE -> Unit
+        }
+        if (fx == Fx.LOTTIE) lottie?.let { d ->
+            d.setBounds(0, 0, width, height)
+            d.draw(canvas)
         }
         canvas.drawBitmap(c, pad, pad, bmpPaint)
     }

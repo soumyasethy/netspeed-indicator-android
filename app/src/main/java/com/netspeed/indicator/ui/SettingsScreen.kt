@@ -114,6 +114,7 @@ fun SettingsScreen(
     onBubbleTracking: (Float) -> Unit,
     onBubbleFx: (String) -> Unit,
     onPickLottieFile: () -> Unit,
+    onBubbleFxPlacement: (String) -> Unit,
     onClearLottieFile: () -> Unit,
     onBubbleLockSize: (Boolean) -> Unit,
     onBubbleBoxW: (Int) -> Unit,
@@ -312,6 +313,8 @@ fun SettingsScreen(
                     tierColor = tierColor,
                 )
                 BubblePositionPad(
+                    posX = settings.floatingChipX,
+                    posY = settings.floatingChipY,
                     onNudge = { dx, dy -> tap(); onBubbleNudge(dx, dy) },
                     onPreset = { tap(); onBubblePreset(it) },
                 )
@@ -442,6 +445,17 @@ fun SettingsScreen(
                     }
                     Text(
                         "Any Lottie animation plays inside the bubble, speed-mapped: it ambles when idle and races while you download. Thousands of free .json scenes online.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    )
+                    ChipPickRow(
+                        label = "Scene placement",
+                        options = listOf("left" to "⬅ Left of text", "behind" to "🎞 Background", "right" to "➡ Right of text"),
+                        selected = settings.bubbleFxPlacement,
+                        onPick = { tap(); onBubbleFxPlacement(it) },
+                    )
+                    Text(
+                        "Background + transparent icon background = the animation IS the badge; the digits get a soft shadow so they stay readable.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     )
@@ -1436,16 +1450,28 @@ enum class BubbleCorner { TOP_LEFT, TOP_RIGHT, CENTRE, BOTTOM_LEFT, BOTTOM_RIGHT
  */
 @Composable
 private fun BubblePositionPad(
+    posX: Int,
+    posY: Int,
     onNudge: (dxPx: Int, dyPx: Int) -> Unit,
     onPreset: (BubbleCorner) -> Unit,
 ) {
-    val step = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.roundToPx() }
+    // Pixel-perfect placement: selectable step, down to 1 px.
+    var step by remember { androidx.compose.runtime.mutableIntStateOf(10) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Bubble position",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Bubble position",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "X $posX · Y $posY px",
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 BubbleCorner.TOP_LEFT to "◴ Top-L",
@@ -1476,10 +1502,27 @@ private fun BubblePositionPad(
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
+            listOf(1, 10, 50).forEach { px ->
+                val on = step == px
+                Text(
+                    "${px}px",
+                    fontSize = 11.sp,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (on) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        )
+                        .selectable(selected = on, onClick = { step = px })
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+            }
             listOf(
-                "◀" to (-step to 0), "▶" to (step to 0),
-                "▲" to (0 to -step), "▼" to (0 to step),
-            ).forEach { (glyph, d) ->
+                "◀" to Pair(-1, 0), "▶" to Pair(1, 0),
+                "▲" to Pair(0, -1), "▼" to Pair(0, 1),
+            ).forEach { (glyph, dir) ->
+                val d = dir.first * step to dir.second * step
                 Text(
                     glyph,
                     fontSize = 16.sp,

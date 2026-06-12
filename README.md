@@ -41,7 +41,7 @@ the device.**
 
 ---
 
-## 🎨 14 live themes × 6 colour skins
+## 🎨 15 live themes × 6 colour skins
 
 Pick a **theme** for the motion and a **skin** for the palette — they compose. A skin
 repaints the *whole* app in one identity: hero, chips, toggles, the home-screen widgets,
@@ -60,7 +60,7 @@ even the status-bar chip. Six of the combinations:
 </div>
 
 > Themes: Kinetic · Tier flow · Liquid · ECG · Dial · Radar · Particles · Curtains ·
-> Material You · Sky · Bento · Terminal · Brutalist · Glass.
+> Material You · Sky · Bento · Terminal · Brutalist · Glass · Speedtest.
 > Skins: Tier · Aurora · Carbon pulse · Glasswave · Neo-brutal · Terminal.
 
 ---
@@ -89,8 +89,8 @@ even the status-bar chip. Six of the combinations:
   widget picker.
 
 ### 🎨 Animated dashboard
-- **14 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
-  Material You, Sky, Bento, Terminal, Brutalist, Glass) × **6 colour skins**
+- **15 live themes** (Kinetic, Tier flow, Liquid, ECG, Dial, Radar, Particles, Curtains,
+  Material You, Sky, Bento, Terminal, Brutalist, Glass, Speedtest) × **6 colour skins**
   (Tier, Aurora, Carbon, Glasswave, Neo-brutal, Terminal).
 - Smooth, gemini-style **flowing gradients** (constant-velocity, reduced-motion aware).
 - A Material 3 **design system** whose primary/secondary/tertiary colours all derive

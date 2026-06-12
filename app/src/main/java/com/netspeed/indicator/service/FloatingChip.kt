@@ -49,6 +49,9 @@ class FloatingChip(
      */
     var freePlacement: Boolean = true
 
+    /** Scene placement, forwarded to the FX view (behind / left / right). */
+    var fxPlacement: String = "behind"
+
     val isShown: Boolean get() = view != null
     val posX: Int get() = params?.x ?: 0
     val posY: Int get() = params?.y ?: 0
@@ -199,6 +202,7 @@ class FloatingChip(
             val targetW = (bitmap.width * s).roundToInt().coerceAtLeast(1)
             Bitmap.createScaledBitmap(bitmap, targetW, targetH.roundToInt().coerceAtLeast(1), true)
         }
+        iv.placement = fxPlacement
         iv.setLottie(lottie)
         iv.setEffect(fxKey, accentArgb)
         iv.intensity = intensity

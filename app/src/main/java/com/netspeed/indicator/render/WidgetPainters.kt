@@ -174,6 +174,10 @@ object WidgetPainters {
                 c.drawColor(0xFF0E1116.toInt())
                 drawBento(c, wf, hf, d, accent, fg, fg60)
             }
+            "speedtest" -> {                     // Cloudflare-style dual readout
+                c.drawColor(0xFF0E1116.toInt())
+                drawSpeedtestMotif(c, wf, hf, d, fg, fg60)
+            }
             "terminal" -> {                      // green mono terminal lines
                 c.drawColor(0xFF04130A.toInt())
                 drawTerminal(c, wf, hf, d, accent)
@@ -353,6 +357,55 @@ object WidgetPainters {
             c.drawText(label, left + tileW * 0.08f, top + tileH * 0.34f, text(h * 0.085f, fg60, align = Paint.Align.LEFT))
             c.drawText(value, left + tileW * 0.08f, top + tileH * 0.78f, text(h * 0.13f, fg, bold = true, align = Paint.Align.LEFT))
         }
+    }
+
+    /** Dual down/up readout with a filled mini area chart (Speedtest motif).
+     *  NOTE: WidgetData carries only the DOWN history — the chart shows it; the
+     *  upload renders as a value row (honest simplification). */
+    private fun drawSpeedtestMotif(c: Canvas, w: Float, h: Float, d: WidgetData, fg: Int, fg60: Int) {
+        val orange = 0xFFF6821F.toInt()
+        val purple = 0xFF9333EA.toInt()
+        val pad = w * 0.06f
+        c.drawText("Download", pad, h * 0.16f, text(h * 0.08f, fg60, align = Paint.Align.LEFT))
+        c.drawText(
+            SpeedFormatter.inline(d.downBps), pad, h * 0.40f,
+            text(h * 0.20f, fg, bold = true, align = Paint.Align.LEFT),
+        )
+        // Filled area chart of the down history, right-aligned.
+        val recent = d.history.takeLast(30)
+        if (recent.size >= 2) {
+            val maxV = recent.max().coerceAtLeast(1L).toFloat()
+            val top = h * 0.18f; val bottom = h * 0.52f
+            val left = w * 0.46f; val right = w - pad
+            val stepX = (right - left) / 29f
+            val x0 = right - stepX * (recent.size - 1)
+            val path = Path()
+            recent.forEachIndexed { i, v ->
+                val x = x0 + stepX * i
+                val y = bottom - (v / maxV) * (bottom - top)
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            val fillPath = Path(path).apply {
+                lineTo(right, bottom); lineTo(x0, bottom); close()
+            }
+            c.drawPath(fillPath, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = android.graphics.LinearGradient(
+                    0f, top, 0f, bottom,
+                    (orange and 0x00FFFFFF) or (0x66 shl 24), orange and 0x00FFFFFF,
+                    Shader.TileMode.CLAMP,
+                )
+            })
+            c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = orange; style = Paint.Style.STROKE; strokeWidth = h * 0.012f
+                strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
+            })
+        }
+        c.drawText("Upload", pad, h * 0.66f, text(h * 0.08f, fg60, align = Paint.Align.LEFT))
+        c.drawText(
+            SpeedFormatter.inline(d.upBps), pad, h * 0.88f,
+            text(h * 0.18f, purple, bold = true, align = Paint.Align.LEFT),
+        )
+        c.drawText("NetSpeed", w - pad, h * 0.16f, text(h * 0.08f, fg60, align = Paint.Align.RIGHT))
     }
 
     /** Green mono terminal lines + block sparkline (Terminal motif). */

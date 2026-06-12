@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -177,6 +178,8 @@ fun TierFlowHero(
                 BrutalHero(tierWord, smoothedMBps, live, accent, dark)
             HeroTheme.GLASS ->
                 GlassHero(tier, tierWord, smoothedMBps, live, fg)
+            HeroTheme.SPEEDTEST ->
+                SpeedtestHero(live = live, dark = dark)
             HeroTheme.BENTO ->
                 BentoContent(tier = tier, smoothedMBps = smoothedMBps, live = live, fg = fg, mono = mono)
             else ->
@@ -288,6 +291,133 @@ private fun BentoTile(label: String, value: String, bg: Color, fg: Color, modifi
 // ---------------------------------------------------------------------------
 // Skin-signature hero content
 // ---------------------------------------------------------------------------
+
+/**
+ * Speedtest: Cloudflare-style dual readout — Download (orange) and Upload
+ * (purple), each with a big live value and a filled, growing area chart,
+ * vertically separated. Histories are self-accumulated from [LiveSpeed]
+ * emissions (1 Hz), capped at [SPEEDTEST_SAMPLES] points.
+ */
+@Composable
+private fun SpeedtestHero(live: LiveSpeed, dark: Boolean) {
+    val downHist = remember { androidx.compose.runtime.mutableStateListOf<Float>() }
+    val upHist = remember { androidx.compose.runtime.mutableStateListOf<Float>() }
+    LaunchedEffect(live.downBytesPerSec, live.upBytesPerSec, live.running) {
+        downHist.add(if (live.running) live.downBytesPerSec.toFloat() else 0f)
+        upHist.add(if (live.running) live.upBytesPerSec.toFloat() else 0f)
+        while (downHist.size > SPEEDTEST_SAMPLES) downHist.removeAt(0)
+        while (upHist.size > SPEEDTEST_SAMPLES) upHist.removeAt(0)
+    }
+    val ink = if (dark) Color(0xFFEEF1F6) else Color(0xFF18181B)
+    val faint = ink.copy(alpha = 0.55f)
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        SpeedtestRow(
+            label = "Download",
+            bps = if (live.running) live.downBytesPerSec else 0L,
+            history = downHist,
+            line = Color(0xFFF6821F),          // Cloudflare orange
+            ink = ink, faint = faint,
+        )
+        SpeedtestRow(
+            label = "Upload",
+            bps = if (live.running) live.upBytesPerSec else 0L,
+            history = upHist,
+            line = Color(0xFF9333EA),          // purple
+            ink = ink, faint = faint,
+        )
+    }
+}
+
+private const val SPEEDTEST_SAMPLES = 60
+
+/** One metric block: caption, big value+unit, filled area chart of history. */
+@Composable
+private fun SpeedtestRow(
+    label: String,
+    bps: Long,
+    history: List<Float>,
+    line: Color,
+    ink: Color,
+    faint: Color,
+) {
+    val parts = SpeedFormatter.parts(bps)
+    // Smooth the newest point so the chart tip glides instead of stepping.
+    val tip by animateFloatAsState(
+        targetValue = history.lastOrNull() ?: 0f,
+        animationSpec = tween(700),
+        label = "tip$label",
+    )
+    Column {
+        androidx.compose.material3.Text(label, color = faint, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.Bottom) {
+            androidx.compose.material3.Text(
+                parts.value,
+                color = ink,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Black,
+            )
+            androidx.compose.material3.Text(
+                " ${parts.unit}",
+                color = faint,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+                .height(64.dp)
+                .drawBehind {
+                    if (history.size < 2) return@drawBehind
+                    val pts = history.toMutableList().also { it[it.lastIndex] = tip }
+                    val maxV = pts.max().coerceAtLeast(1f)
+                    val stepX = size.width / (SPEEDTEST_SAMPLES - 1).toFloat()
+                    val x0 = size.width - stepX * (pts.size - 1)   // right-aligned, grows leftward
+                    fun y(v: Float) = size.height * (1f - (v / maxV) * 0.92f)
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(x0, y(pts.first()))
+                        pts.forEachIndexed { i, v -> if (i > 0) lineTo(x0 + stepX * i, y(v)) }
+                    }
+                    // Filled area under the line (gradient fade like Cloudflare).
+                    val fill = androidx.compose.ui.graphics.Path().apply {
+                        addPath(path)
+                        lineTo(size.width, size.height)
+                        lineTo(x0, size.height)
+                        close()
+                    }
+                    drawPath(
+                        fill,
+                        brush = Brush.verticalGradient(
+                            listOf(line.copy(alpha = 0.45f), line.copy(alpha = 0f)),
+                        ),
+                    )
+                    drawPath(
+                        path,
+                        color = line,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = 2.dp.toPx(),
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            join = androidx.compose.ui.graphics.StrokeJoin.Round,
+                        ),
+                    )
+                    // Faint "90th percentile"-style top rule for the look.
+                    drawLine(
+                        color = faint.copy(alpha = 0.25f),
+                        start = Offset(0f, size.height * 0.06f),
+                        end = Offset(size.width, size.height * 0.06f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                },
+        )
+    }
+}
 
 /** Terminal: htop-style green mono readout with a block-char sparkline + cursor. */
 @Composable

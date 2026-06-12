@@ -72,6 +72,8 @@ fun DrawScope.drawHeroBackground(
         HeroTheme.TERMINAL -> drawRect(if (dark) Color(0xFF050A06) else Color(0xFF0A140D))
         HeroTheme.BRUTALIST -> drawRect(gradColors.lastOrNull() ?: accent)   // flat, no gradient
         HeroTheme.GLASS -> drawGlass(clock, accent, dark)
+        // Speedtest: clean light/dark canvas — the dual charts ARE the visual.
+        HeroTheme.SPEEDTEST -> drawRect(if (dark) Color(0xFF0E1116) else Color(0xFFF7F8FA))
     }
 }
 
