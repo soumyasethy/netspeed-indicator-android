@@ -68,6 +68,16 @@ private const val DEMO_UP = 1_153_433L       // ≈ 1.1 MB/s
 @Composable
 fun OnboardingScreen(
     live: LiveSpeed,
+    settings: com.netspeed.indicator.data.Settings,
+    suiteUnlocked: Boolean,
+    onStyleSelect: (IconStyle) -> Unit,
+    onUnitStyle: (UnitStyle) -> Unit,
+    onIconBgColor: (Int) -> Unit,
+    onIconFgColor: (Int) -> Unit,
+    onIconTextScale: (Float) -> Unit,
+    onIconBorderColor: (Int) -> Unit,
+    onIconBorderWidth: (Int) -> Unit,
+    onLockedColor: () -> Unit,
     onDone: () -> Unit,
 ) {
     val reducedMotion = rememberReducedMotion()
@@ -117,7 +127,19 @@ fun OnboardingScreen(
             ) {
                 when (page) {
                     0 -> ScenesPage(clockFn, liveMbps)
-                    1 -> StatusBarPage()
+                    1 -> StatusBarPage(
+                        settings = settings,
+                        live = live,
+                        suiteUnlocked = suiteUnlocked,
+                        onStyleSelect = onStyleSelect,
+                        onUnitStyle = onUnitStyle,
+                        onIconBgColor = onIconBgColor,
+                        onIconFgColor = onIconFgColor,
+                        onIconTextScale = onIconTextScale,
+                        onIconBorderColor = onIconBorderColor,
+                        onIconBorderWidth = onIconBorderWidth,
+                        onLockedColor = onLockedColor,
+                    )
                     else -> BubblePage(clockFn, liveMbps)
                 }
             }
@@ -175,69 +197,45 @@ private fun ScenesPage(clockFn: () -> Float, liveMbps: Float) {
 // ---------------------------------------------------------------- page 2
 
 @Composable
-private fun StatusBarPage() {
-    // Real chips from the production IconRenderer — exactly what lands beside
-    // the clock, in four of the style / unit combinations.
-    val barChip = remember { barChipImage(IconStyle.AUTO) }
-    // The five real icon styles, each rendered in its DISTINCTIVE shape (the two
-    // Arrows layouts need both directions or they look identical) — same as the
-    // Style Studio's "Icon style" card.
-    val styleChips = remember {
-        listOf(
-            "Arrows ↕" to barChipImage(IconStyle.ARROWS, combined = true),
-            "Arrows ↔" to barChipImage(IconStyle.ARROWS_H, combined = true),
-            "Stacked" to barChipImage(IconStyle.STACKED),
-            "Compact" to barChipImage(IconStyle.COMPACT),
-            "Auto" to barChipImage(IconStyle.AUTO),
-        )
-    }
-
-    // Status-bar mock: clock left, our chip among the system icons.
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF15171C))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        Text("12:30", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.weight(1f))
-        Image(barChip, contentDescription = null, modifier = Modifier.height(24.dp))
-        Spacer(Modifier.size(8.dp))
-        Text("📶 🔋", fontSize = 13.sp)
-    }
-    Spacer(Modifier.size(10.dp))
-    // Style shelf: the SAME renderer with different style / unit options.
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        styleChips.forEach { (label, img) ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(horizontal = 4.dp, vertical = 10.dp),
-            ) {
-                Image(img, contentDescription = label, modifier = Modifier.fillMaxWidth().height(26.dp))
-                Spacer(Modifier.size(6.dp))
-                Text(
-                    label, fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-            }
-        }
-    }
-    Spacer(Modifier.size(22.dp))
+private fun StatusBarPage(
+    settings: com.netspeed.indicator.data.Settings,
+    live: LiveSpeed,
+    suiteUnlocked: Boolean,
+    onStyleSelect: (IconStyle) -> Unit,
+    onUnitStyle: (UnitStyle) -> Unit,
+    onIconBgColor: (Int) -> Unit,
+    onIconFgColor: (Int) -> Unit,
+    onIconTextScale: (Float) -> Unit,
+    onIconBorderColor: (Int) -> Unit,
+    onIconBorderWidth: (Int) -> Unit,
+    onLockedColor: () -> Unit,
+) {
     PageTitle("Live speed in your status bar")
-    PageSub("A crisp per-second readout beside the clock — these previews are the real renderer.")
+    PageSub("Pick your look now — tap “Use this”. Every preview is the real renderer.")
+    Spacer(Modifier.size(16.dp))
+    // The exact Style Studio "Icon style" card — interactive, writes straight to
+    // your settings, so the choice is live before you even finish onboarding.
+    IconStyleCard(
+        selected = settings.iconStyle,
+        showCombined = settings.showCombined,
+        live = live,
+        iconBg = settings.iconBgColor,
+        iconFg = settings.iconFgColor,
+        iconTextScale = settings.iconTextScale,
+        unitStyle = settings.iconUnitStyle,
+        borderColor = settings.iconBorderColor,
+        borderWidth = settings.iconBorderWidth,
+        onSelect = onStyleSelect,
+        onBgColor = onIconBgColor,
+        onFgColor = onIconFgColor,
+        onTextScale = onIconTextScale,
+        onUnitStyle = onUnitStyle,
+        onBorderColor = onIconBorderColor,
+        onBorderWidth = onIconBorderWidth,
+        customColorUnlocked = suiteUnlocked,
+        onLockedColor = onLockedColor,
+    )
     Spacer(Modifier.size(14.dp))
-    Bullet("5 icon styles × 3 unit formats, any colours & text size")
-    Bullet("Optional details row in the notification panel")
-    Bullet("Auto-hide when idle · updates with the screen off")
     Bullet("No INTERNET permission — data never leaves the device")
 }
 
@@ -339,19 +337,6 @@ private fun Bullet(s: String) {
         )
     }
 }
-
-/** Status-bar chip via the production renderer (colour-true path). [combined] folds
- *  up+down together so the Arrows layouts show their true two-direction shape. */
-private fun barChipImage(style: IconStyle, unit: UnitStyle = UnitStyle.SHORT, combined: Boolean = false) =
-    IconRenderer(sizePx = 120).apply {
-        colorTrue = true
-        // Transparent (unframed): a pill would force the square chip to collapse the
-        // horizontal Arrows layout back to stacked, making ↕ and ↔ look identical.
-        // Unframed, each style renders in its natural shape.
-        bgColorArgb = 0
-        fgColorArgb = android.graphics.Color.WHITE
-        unitStyle = unit
-    }.render(style, DEMO_DOWN, DEMO_UP, showCombined = combined).asImageBitmap()
 
 /** Floating-bubble face via the production chip renderer. */
 private fun bubbleBadgeImage(tf: Typeface, bold: Boolean) =

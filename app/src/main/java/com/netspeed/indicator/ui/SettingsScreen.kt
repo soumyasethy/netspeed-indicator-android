@@ -972,7 +972,7 @@ private val STYLE_DESCRIPTIONS = mapOf(
 )
 
 @Composable
-private fun IconStyleCard(
+internal fun IconStyleCard(
     selected: IconStyle,
     showCombined: Boolean,
     live: LiveSpeed,

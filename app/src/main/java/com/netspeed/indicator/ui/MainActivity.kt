@@ -103,6 +103,16 @@ class MainActivity : ComponentActivity() {
                 if (!settings.onboardingDone || onbPreview) {
                     OnboardingScreen(
                         live = live,
+                        settings = settings,
+                        suiteUnlocked = entitlement.suiteUnlocked || !BuildConfig.PAYWALL_ENABLED,
+                        onStyleSelect = { v -> persist { repo.setIconStyle(v) } },
+                        onUnitStyle = { v -> persist { repo.setIconUnitStyle(v) } },
+                        onIconBgColor = { c -> persist { repo.setIconBgColor(c) } },
+                        onIconFgColor = { c -> persist { repo.setIconFgColor(c) } },
+                        onIconTextScale = { v -> persist { repo.setIconTextScale(v) } },
+                        onIconBorderColor = { c -> persist { repo.setIconBorderColor(c) } },
+                        onIconBorderWidth = { w -> persist { repo.setIconBorderWidth(w) } },
+                        onLockedColor = { showPaywall = true },
                         onDone = {
                             // Real first-run completion (not the debug replay) auto-starts the
                             // indicator in Bubble mode so speed shows immediately — bubble docks
@@ -238,6 +248,15 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         hasNotifPermission = notificationsAllowed()
         hasOverlayPermission = Settings.canDrawOverlays(this)
+        // Returning here (e.g. after granting the overlay permission) must revive the
+        // indicator: if a surface is now possible but the service died, restart it so
+        // the bubble actually appears for first-time users.
+        lifecycleScope.launch {
+            val s = repo.settings.first()
+            if (s.enabled || (s.floatingChip && hasOverlayPermission)) {
+                SpeedMeterService.start(this@MainActivity)
+            }
+        }
     }
 
     override fun onDestroy() {

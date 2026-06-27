@@ -219,10 +219,12 @@ class SpeedMeterService : LifecycleService() {
                         floatingChip.moveTo(want.first, want.second)
                     }
                 }
-                // No surface left (bar icon off AND no drawable bubble) → shut down.
-                val bubbleLive = s.floatingChip &&
-                    android.provider.Settings.canDrawOverlays(this@SpeedMeterService)
-                if (!s.enabled && !bubbleLive) {
+                // Stop ONLY when no surface is wanted at all. Crucially we keep
+                // running while the bubble is WANTED (floatingChip) even if the
+                // overlay permission isn't granted yet — otherwise on first run we'd
+                // stop before the user grants it, and the bubble would never appear
+                // (the next tick after a grant draws it). Off = both surfaces off.
+                if (!s.enabled && !s.floatingChip) {
                     SpeedBus.markStopped()
                     stopSelf()
                     return@collect
