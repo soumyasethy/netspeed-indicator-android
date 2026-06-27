@@ -178,13 +178,17 @@ private fun ScenesPage(clockFn: () -> Float, liveMbps: Float) {
 private fun StatusBarPage() {
     // Real chips from the production IconRenderer — exactly what lands beside
     // the clock, in four of the style / unit combinations.
-    val barChip = remember { barChipImage(IconStyle.AUTO, UnitStyle.SHORT) }
+    val barChip = remember { barChipImage(IconStyle.AUTO) }
+    // The five real icon styles, each rendered in its DISTINCTIVE shape (the two
+    // Arrows layouts need both directions or they look identical) — same as the
+    // Style Studio's "Icon style" card.
     val styleChips = remember {
         listOf(
-            "Arrows ↕" to barChipImage(IconStyle.ARROWS, UnitStyle.SHORT),
-            "Arrows ↔" to barChipImage(IconStyle.ARROWS_H, UnitStyle.SHORT),
-            "Stacked" to barChipImage(IconStyle.STACKED, UnitStyle.SHORT),
-            "Full unit" to barChipImage(IconStyle.AUTO, UnitStyle.FULL),
+            "Arrows ↕" to barChipImage(IconStyle.ARROWS, combined = true),
+            "Arrows ↔" to barChipImage(IconStyle.ARROWS_H, combined = true),
+            "Stacked" to barChipImage(IconStyle.STACKED),
+            "Compact" to barChipImage(IconStyle.COMPACT),
+            "Auto" to barChipImage(IconStyle.AUTO),
         )
     }
 
@@ -216,9 +220,9 @@ private fun StatusBarPage() {
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(vertical = 10.dp),
+                    .padding(horizontal = 4.dp, vertical = 10.dp),
             ) {
-                Image(img, contentDescription = label, modifier = Modifier.height(26.dp))
+                Image(img, contentDescription = label, modifier = Modifier.fillMaxWidth().height(26.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(
                     label, fontSize = 10.sp,
@@ -336,14 +340,18 @@ private fun Bullet(s: String) {
     }
 }
 
-/** Status-bar chip via the production renderer (colour-true path). */
-private fun barChipImage(style: IconStyle, unit: UnitStyle) =
+/** Status-bar chip via the production renderer (colour-true path). [combined] folds
+ *  up+down together so the Arrows layouts show their true two-direction shape. */
+private fun barChipImage(style: IconStyle, unit: UnitStyle = UnitStyle.SHORT, combined: Boolean = false) =
     IconRenderer(sizePx = 120).apply {
         colorTrue = true
-        bgColorArgb = 0xE6101218.toInt()
+        // Transparent (unframed): a pill would force the square chip to collapse the
+        // horizontal Arrows layout back to stacked, making ↕ and ↔ look identical.
+        // Unframed, each style renders in its natural shape.
+        bgColorArgb = 0
         fgColorArgb = android.graphics.Color.WHITE
         unitStyle = unit
-    }.render(style, DEMO_DOWN, DEMO_UP, showCombined = false).asImageBitmap()
+    }.render(style, DEMO_DOWN, DEMO_UP, showCombined = combined).asImageBitmap()
 
 /** Floating-bubble face via the production chip renderer. */
 private fun bubbleBadgeImage(tf: Typeface, bold: Boolean) =
