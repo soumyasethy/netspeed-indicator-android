@@ -2308,13 +2308,23 @@ private fun TextFormatRow(
                             com.netspeed.indicator.ui.ThemeCanvas(
                                 settings.heroTheme, settings.colorSkin, clockFn, liveMbps,
                             )
+                            // Top-weighted scrim: dark where the text sits, fading to
+                            // clear over the character, which rides the bottom of the
+                            // diorama — so the readout never lands on top of it.
                             Box(
-                                Modifier.fillMaxSize().background(Color(0x59000000)),
+                                Modifier.fillMaxSize().background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        0f to Color(0xCC000000),
+                                        0.5f to Color(0x40000000),
+                                        1f to Color(0x00000000),
+                                    ),
+                                ),
                             )
                             FormatMiniPreview(
                                 fmt,
                                 if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 8_808_038L,
                                 if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 1_258_291L,
+                                Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
                             )
                         }
                         Text(
@@ -2333,12 +2343,17 @@ private fun TextFormatRow(
 
 /** Static miniature of a TextFormat using real formatter output. */
 @Composable
-private fun FormatMiniPreview(fmt: com.netspeed.indicator.data.TextFormat, down: Long, up: Long) {
+private fun FormatMiniPreview(
+    fmt: com.netspeed.indicator.data.TextFormat,
+    down: Long,
+    up: Long,
+    modifier: Modifier = Modifier,
+) {
     val w = Color.White
     val w7 = Color.White.copy(alpha = 0.7f)
     val w5 = Color.White.copy(alpha = 0.5f)
     val dParts = SpeedFormatter.parts(down)
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         when (fmt) {
             com.netspeed.indicator.data.TextFormat.CLASSIC -> {
                 Text("Steady", fontSize = 7.sp, color = w7)
