@@ -103,7 +103,15 @@ class MainActivity : ComponentActivity() {
                 if (!settings.onboardingDone || onbPreview) {
                     OnboardingScreen(
                         live = live,
-                        onDone = { onbPreview = false; persist { repo.setOnboardingDone() } },
+                        onDone = {
+                            // Real first-run completion (not the debug replay) auto-starts the
+                            // indicator in Bubble mode so speed shows immediately — bubble docks
+                            // beside the notch and the overlay permission is requested now.
+                            val firstRun = !onbPreview
+                            onbPreview = false
+                            persist { repo.setOnboardingDone() }
+                            if (firstRun) selectIndicatorMode(IndicatorMode.BUBBLE)
+                        },
                     )
                 } else if (showStudio) {
                     androidx.activity.compose.BackHandler { showStudio = false }
@@ -377,7 +385,9 @@ class MainActivity : ComponentActivity() {
         val (x, y) = when (corner) {
             BubbleCorner.TOP_LEFT -> 0 to 0
             BubbleCorner.TOP_RIGHT -> dm.widthPixels to 0
-            BubbleCorner.NOTCH -> notchLeftDock(repo.settings.first().floatingChipScale)
+            BubbleCorner.NOTCH -> repo.settings.first().let {
+                besideNotchDock(it.floatingChipScale, it.bubbleBoxW, it.bubbleBoxH)
+            }
             BubbleCorner.CENTRE -> dm.widthPixels / 2 - dm.widthPixels / 14 to dm.heightPixels / 2
             BubbleCorner.BOTTOM_LEFT -> 0 to dm.heightPixels
             BubbleCorner.BOTTOM_RIGHT -> dm.widthPixels to dm.heightPixels
@@ -386,18 +396,20 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The default "clever spot": tucked into the status bar just LEFT of a centred
-     * punch-hole (or left of the right-side system icons if there's no central
-     * cutout). Reads the live [android.view.DisplayCutout] so it lands right on any
-     * phone; geometry lives in the unit-tested [BubbleDock.notchLeft].
+     * The default "clever spot": tucked into the status bar just RIGHT of a centred
+     * punch-hole and left of the system icons (or left of those icons if there's no
+     * central cutout). Reads the live [android.view.DisplayCutout] so it lands right
+     * on any phone; geometry lives in the unit-tested [BubbleDock.besideNotch].
      */
-    private fun notchLeftDock(scale: Float): Pair<Int, Int> {
+    private fun besideNotchDock(scale: Float, boxWdp: Int, boxHdp: Int): Pair<Int, Int> {
         val dm = resources.displayMetrics
         val d = dm.density
         val sbId = resources.getIdentifier("status_bar_height", "dimen", "android")
         val statusBarPx = if (sbId > 0) resources.getDimensionPixelSize(sbId) else (28 * d).roundToInt()
-        val chipH = (FloatingChip.BASE_HEIGHT_DP * scale * d).roundToInt()
-        val chipW = (64 * scale * d).roundToInt()      // compact download-only readout estimate
+        // A locked badge gives the real footprint → the dock centres it in the status
+        // bar (≈20 px top margin for a 20 dp badge), level with the system icons.
+        val chipH = if (boxHdp > 0) (boxHdp * d).roundToInt() else (FloatingChip.BASE_HEIGHT_DP * scale * d).roundToInt()
+        val chipW = if (boxWdp > 0) (boxWdp * d).roundToInt() else (64 * scale * d).roundToInt()
         val gap = (8 * d).roundToInt()
         var cutLeft: Int? = null
         var cutRight: Int? = null
@@ -406,7 +418,7 @@ class MainActivity : ComponentActivity() {
                 ?.boundingRects?.firstOrNull { it.top <= statusBarPx }
                 ?.let { cutLeft = it.left; cutRight = it.right }
         }
-        return BubbleDock.notchLeft(dm.widthPixels, statusBarPx, chipW, chipH, cutLeft, cutRight, gap)
+        return BubbleDock.besideNotch(dm.widthPixels, statusBarPx, chipW, chipH, cutLeft, cutRight, gap)
     }
 
     /**

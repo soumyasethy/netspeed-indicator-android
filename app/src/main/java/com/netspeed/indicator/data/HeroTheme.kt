@@ -41,7 +41,7 @@ enum class HeroTheme(val storageKey: String, val label: String) {
     val isScene: Boolean get() = storageKey.startsWith("scene_")
 
     companion object {
-        val DEFAULT = KINETIC
+        val DEFAULT = SCENE_JOURNEY
         fun fromKey(key: String?): HeroTheme =
             entries.firstOrNull { it.storageKey == key } ?: DEFAULT
     }

@@ -26,7 +26,7 @@ enum class IconStyle(
     AUTO("auto", "Auto ⇅", "Shows the busier direction");
 
     companion object {
-        val DEFAULT = ARROWS
+        val DEFAULT = AUTO
         fun fromKey(key: String?): IconStyle =
             entries.firstOrNull { it.storageKey == key } ?: DEFAULT
     }

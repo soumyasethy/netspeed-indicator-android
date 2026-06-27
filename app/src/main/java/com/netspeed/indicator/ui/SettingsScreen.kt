@@ -1015,13 +1015,17 @@ private fun IconStyleCard(
         // bitmap stays punch-out — the OS tints it monochrome regardless.
         renderer.colorTrue = true
         IconStyle.entries.associateWith { style ->
-            if (style == IconStyle.ARROWS_H && showCombined && dualOk) {
+            // Previews always show each style's DISTINCTIVE shape: the two Arrows
+            // layouts must never look identical (↕ stacked vs ↔ side-by-side), even
+            // when "show upload" is off. So force both-directions for them here.
+            val pc = showCombined || style == IconStyle.ARROWS || style == IconStyle.ARROWS_H
+            if (style == IconStyle.ARROWS_H && pc && dualOk) {
                 listOf(
                     renderer.renderSingle(down, down = true).asImageBitmap(),
                     renderer.renderSingle(up, down = false).asImageBitmap(),
                 )
             } else {
-                listOf(renderer.render(style, down, up, showCombined).asImageBitmap())
+                listOf(renderer.render(style, down, up, pc).asImageBitmap())
             }
         }
     }
@@ -1181,8 +1185,8 @@ private fun IconTextSizeRow(value: Float, onChange: (Float) -> Unit) {
                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 onChange((it * 20f).toInt() / 20f)   // snap to 5% steps
             },
-            valueRange = 0.8f..1.4f,
-            steps = 11,
+            valueRange = 0f..1.4f,
+            steps = 27,
         )
     }
 }

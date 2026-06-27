@@ -29,7 +29,7 @@ const val DEFAULT_CHIP_Y = 240
 /** User-facing toggles, read by both the UI and the service. */
 data class Settings(
     val enabled: Boolean = false,
-    val showCombined: Boolean = false,
+    val showCombined: Boolean = true,
     val updateWhileScreenOff: Boolean = false,
     val iconStyle: IconStyle = IconStyle.DEFAULT,
     val showInPanel: Boolean = false,
@@ -42,8 +42,10 @@ data class Settings(
     val dailyQuotaBytes: Long = 0L,
     /** Whole-app colour skin (palette + hero gradient + font). */
     val colorSkin: ColorSkin = ColorSkin.DEFAULT,
-    /** Status-bar icon background ARGB (0 = transparent) and glyph colour. */
-    val iconBgColor: Int = DEFAULT_ICON_BG,
+    /** Status-bar icon background ARGB (0 = transparent) and glyph colour.
+     *  Default ships transparent + white glyphs (a shadow halo keeps them legible
+     *  on any bar / wallpaper) — the cleanest out-of-box look. */
+    val iconBgColor: Int = 0,
     val iconFgColor: Int = 0xFFFFFFFF.toInt(),
     /** User icon text-size multiplier (0.8–1.4), on top of the system font scale. */
     val iconTextScale: Float = 1f,
@@ -51,8 +53,9 @@ data class Settings(
     val autoHideIdle: Boolean = false,
     /** Unit treatment in single-direction icons (short suffix / full / below). */
     val iconUnitStyle: UnitStyle = UnitStyle.DEFAULT,
-    /** Icon outline: ARGB colour (0 = none) and stroke width step (1–3). */
-    val iconBorderColor: Int = DEFAULT_ICON_BORDER,
+    /** Icon outline: ARGB colour (0 = none) and stroke width step (1–3).
+     *  Default: no outline. */
+    val iconBorderColor: Int = 0,
     val iconBorderWidth: Int = 1,
     /** Floating draggable speed bubble drawn over any app (needs overlay permission). */
     val floatingChip: Boolean = true,
@@ -64,18 +67,22 @@ data class Settings(
     val floatingChipScale: Float = 1f,
     /** Bubble width boost — multiplies the chip's horizontal padding (1.0–2.5). */
     val floatingChipPadScale: Float = 1f,
-    /** Bubble glyph weight: heavy (default, matches the bar) or regular. */
-    val bubbleBold: Boolean = true,
+    /** Bubble glyph weight: heavy or regular. Default regular (lean) — pairs with
+     *  the small locked badge. */
+    val bubbleBold: Boolean = false,
     /** Bubble font family key: sans / condensed / serif / mono (system faces). */
-    val bubbleFont: String = "sans",
+    val bubbleFont: String = "mono",
     /** Bubble letter-spacing in em (0–0.12) — relaxes clumpy horizontal text. */
     val bubbleTracking: Float = 0f,
-    /** Bubble speed-reactive animation: none / flame / glow / sparks / lottie. */
-    val bubbleFx: String = "none",
+    /** Bubble speed-reactive animation: none / flame / glow / sparks / lottie /
+     *  theme. Default "theme" — the bubble plays whatever scene the hero theme is. */
+    val bubbleFx: String = "theme",
     /** Custom Lottie scene file (SAF uri); "" = the bundled paper-plane. */
     val bubbleLottieUri: String = "",
-    /** Scene placement: behind the text, or beside it (left/right slot). */
-    val bubbleFxPlacement: String = "behind",
+    /** Scene placement: behind the text, or beside it (left/right slot). Default
+     *  "right" — the scene sits to the right of the readout, so text never overlaps
+     *  the character. */
+    val bubbleFxPlacement: String = "right",
     /** Hero text position over scene themes: auto (per-scene) / left / center / right. */
     val heroTextPos: String = "auto",
     /** Info layout for the hero/widget text block ([com.netspeed.indicator.data.TextFormat]). */
@@ -85,12 +92,14 @@ data class Settings(
     val heroTextDY: Int = 0,
     /** First-launch intro completed. */
     val onboardingDone: Boolean = false,
-    /** Fixed-size badge mode: lock the bubble box; content auto-fits inside. */
-    val bubbleLockSize: Boolean = false,
+    /** Fixed-size badge mode: lock the bubble box; content auto-fits inside.
+     *  Default ON with a 0/0 box = freeze the bubble at its current size. */
+    val bubbleLockSize: Boolean = true,
     /** Locked box dimensions in dp. */
-    /** Locked badge box in dp; 0 = capture the CURRENT size when lock turns on. */
-    val bubbleBoxW: Int = 0,
-    val bubbleBoxH: Int = 0,
+    /** Locked badge box in dp; 0 = capture the CURRENT size when lock turns on.
+     *  Default 32x20 dp — a compact pill sized like the system status icons. */
+    val bubbleBoxW: Int = 32,
+    val bubbleBoxH: Int = 20,
     /** Persisted bubble position (window coordinates). */
     val floatingChipX: Int = DEFAULT_CHIP_X,
     val floatingChipY: Int = DEFAULT_CHIP_Y,
@@ -133,7 +142,7 @@ class SettingsRepository(private val context: Context) {
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
         Settings(
             enabled = p[KEY_ENABLED] ?: false,
-            showCombined = p[KEY_COMBINED] ?: false,
+            showCombined = p[KEY_COMBINED] ?: true,
             updateWhileScreenOff = p[KEY_SCREEN_OFF] ?: false,
             iconStyle = IconStyle.fromKey(p[KEY_ICON_STYLE]),
             showInPanel = p[KEY_SHOW_PANEL] ?: false,   // minimal card by default
@@ -144,31 +153,31 @@ class SettingsRepository(private val context: Context) {
                 ?: com.netspeed.indicator.core.SpeedTiers.ALL.map { it.defaultWord },
             dailyQuotaBytes = p[KEY_QUOTA_BYTES] ?: 0L,
             colorSkin = ColorSkin.fromKey(p[KEY_COLOR_SKIN]),
-            iconBgColor = p[KEY_ICON_BG] ?: DEFAULT_ICON_BG,
+            iconBgColor = p[KEY_ICON_BG] ?: 0,
             iconFgColor = p[KEY_ICON_FG] ?: 0xFFFFFFFF.toInt(),
             iconTextScale = p[KEY_ICON_TEXT_SCALE] ?: 1f,
             autoHideIdle = p[KEY_AUTO_HIDE_IDLE] ?: false,
             iconUnitStyle = UnitStyle.fromKey(p[KEY_ICON_UNIT_STYLE]),
-            iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: DEFAULT_ICON_BORDER,
+            iconBorderColor = p[KEY_ICON_BORDER_COLOR] ?: 0,
             iconBorderWidth = (p[KEY_ICON_BORDER_WIDTH] ?: 1).coerceIn(1, 3),
             floatingChip = p[KEY_FLOAT_CHIP] ?: true,
             hideIconWhenBubble = p[KEY_HIDE_ICON_BUBBLE] ?: false,
             floatingChipScale = (p[KEY_FLOAT_SCALE] ?: 1f).coerceIn(0.5f, 1.6f),
             floatingChipPadScale = (p[KEY_FLOAT_PAD] ?: 1f).coerceIn(1f, 2.5f),
-            bubbleBold = p[KEY_BUBBLE_BOLD] ?: true,
-            bubbleFont = p[KEY_BUBBLE_FONT] ?: "sans",
+            bubbleBold = p[KEY_BUBBLE_BOLD] ?: false,
+            bubbleFont = p[KEY_BUBBLE_FONT] ?: "mono",
             bubbleTracking = (p[KEY_BUBBLE_TRACKING] ?: 0f).coerceIn(0f, 0.12f),
-            bubbleFx = p[KEY_BUBBLE_FX] ?: "none",
+            bubbleFx = p[KEY_BUBBLE_FX] ?: "theme",
             bubbleLottieUri = p[KEY_BUBBLE_LOTTIE] ?: "",
-            bubbleFxPlacement = p[KEY_BUBBLE_FX_PLACE] ?: "behind",
+            bubbleFxPlacement = p[KEY_BUBBLE_FX_PLACE] ?: "right",
             heroTextPos = p[KEY_HERO_TEXT_POS] ?: "auto",
             heroTextFormat = p[KEY_HERO_TEXT_FORMAT] ?: "classic",
             heroTextDX = (p[KEY_HERO_TEXT_DX] ?: 0).coerceIn(-30, 30),
             heroTextDY = (p[KEY_HERO_TEXT_DY] ?: 0).coerceIn(-30, 30),
             onboardingDone = p[KEY_ONBOARDED] ?: false,
-            bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: false,
-            bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 0).let { if (it == 0) 0 else it.coerceIn(32, 400) },
-            bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 0).let { if (it == 0) 0 else it.coerceIn(20, 200) },
+            bubbleLockSize = p[KEY_BUBBLE_LOCK] ?: true,
+            bubbleBoxW = (p[KEY_BUBBLE_BOX_W] ?: 32).let { if (it == 0) 0 else it.coerceIn(32, 400) },
+            bubbleBoxH = (p[KEY_BUBBLE_BOX_H] ?: 20).let { if (it == 0) 0 else it.coerceIn(20, 200) },
             floatingChipX = p[KEY_FLOAT_X] ?: DEFAULT_CHIP_X,
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,

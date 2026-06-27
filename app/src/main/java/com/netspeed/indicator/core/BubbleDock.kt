@@ -2,17 +2,18 @@ package com.netspeed.indicator.core
 
 /**
  * Pure geometry for docking the floating speed bubble into the status bar — the
- * "clever spot" the indicator ships in by default: tucked just LEFT of a centred
- * display cutout (the Galaxy punch-hole), or left of the right-side system-icon
- * cluster (Wi-Fi / signal / battery) on phones with no central cutout.
+ * "clever spot" the indicator ships in by default: tucked just RIGHT of a centred
+ * display cutout (the Galaxy punch-hole) and LEFT of the right-side system-icon
+ * cluster (Wi-Fi / signal / battery). On phones with no central cutout it parks
+ * just left of that same system-icon cluster.
  *
  * All values are window pixels; the returned x is the chip's LEFT edge (the
  * overlay uses gravity TOP|START). No Android types so it unit-tests on the JVM.
  */
 object BubbleDock {
 
-    /** Share of the width reserved on the right for the system icons when there
-     *  is no central cutout to tuck against. */
+    /** Share of the width reserved on the right for the system icons — the chip
+     *  is always kept left of this band. */
     private const val SYSTEM_ICONS_FRACTION = 22   // percent
 
     /**
@@ -24,7 +25,7 @@ object BubbleDock {
      * @param cutoutRightPx right edge of a top display cutout, or null if none
      * @param gapPx         breathing room from the cutout / icons / screen edge
      */
-    fun notchLeft(
+    fun besideNotch(
         screenWidthPx: Int,
         statusBarPx: Int,
         chipWidthPx: Int,
@@ -38,11 +39,10 @@ object BubbleDock {
         // a corner notch is treated as "no central cutout".
         val central = cutoutLeftPx != null && cutoutRightPx != null &&
             cutoutLeftPx > screenWidthPx / 4 && cutoutRightPx < screenWidthPx * 3 / 4
-        val x = if (central) {
-            cutoutLeftPx!! - chipWidthPx - gapPx
-        } else {
-            screenWidthPx - chipWidthPx - gapPx - (screenWidthPx * SYSTEM_ICONS_FRACTION / 100)
-        }
-        return x.coerceAtLeast(gapPx) to y
+        // Never let the chip slide under the system-icon band on the right.
+        val systemIconsLeft = screenWidthPx - (screenWidthPx * SYSTEM_ICONS_FRACTION / 100)
+        val maxX = (systemIconsLeft - chipWidthPx - gapPx).coerceAtLeast(gapPx)
+        val rawX = if (central) cutoutRightPx!! + gapPx else maxX
+        return rawX.coerceIn(gapPx, maxX) to y
     }
 }

@@ -394,11 +394,16 @@ private fun HeroContent(
                 KineticNumber(mbps = smoothedMBps, fg = fg, mono = mono)
                 Spacer(Modifier.size(6.dp))
                 line(if (live.running) tier.defaultSubtitle else "Indicator is off", 12, fg85)
-                Spacer(Modifier.size(10.dp))
-                line("▲ ${SpeedFormatter.inline(live.upBytesPerSec)}  ·  ${SpeedFormatter.total(live.todayBytes)} today")
-                if (statsLine != null) {
-                    Spacer(Modifier.size(4.dp))
-                    line(statsLine, 10, fg55)
+                // The wide "▲ up · today" and stats lines bleed sideways across a
+                // scene's character; the side-docked (compact) scene layout keeps
+                // just the headline so the diorama stays clear.
+                if (!compact) {
+                    Spacer(Modifier.size(10.dp))
+                    line("▲ ${SpeedFormatter.inline(live.upBytesPerSec)}  ·  ${SpeedFormatter.total(live.todayBytes)} today")
+                    if (statsLine != null) {
+                        Spacer(Modifier.size(4.dp))
+                        line(statsLine, 10, fg55)
+                    }
                 }
             }
         }

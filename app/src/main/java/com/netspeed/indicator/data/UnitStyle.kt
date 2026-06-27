@@ -15,7 +15,7 @@ enum class UnitStyle(val storageKey: String, val label: String) {
     BELOW("below", "Unit below");
 
     companion object {
-        val DEFAULT = SHORT
+        val DEFAULT = FULL
         fun fromKey(key: String?): UnitStyle =
             entries.firstOrNull { it.storageKey == key } ?: DEFAULT
     }
