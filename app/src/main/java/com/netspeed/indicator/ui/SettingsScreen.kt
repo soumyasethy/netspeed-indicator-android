@@ -991,6 +991,7 @@ internal fun IconStyleCard(
     onBorderWidth: (Int) -> Unit,
     customColorUnlocked: Boolean,
     onLockedColor: () -> Unit,
+    compact: Boolean = false,
 ) {
     val down = if (live.running) live.downBytesPerSec else 1_258_291L
     val up = if (live.running) live.upBytesPerSec else 245_760L
@@ -1035,16 +1036,20 @@ internal fun IconStyleCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         run {
-            Text(text = "Icon style", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "Pick how the speed looks in the status bar. Colours always show in full " +
-                    "here and on the floating bubble. In the status bar it depends on the phone: " +
-                    "some (e.g. Samsung) show your true colours; others (e.g. Pixel) repaint every " +
-                    "app's icon in one colour — that's Android, not the app, and applies on every " +
-                    "screen. On those phones, drag the floating bubble into the bar for full colour.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            )
+            // Compact (onboarding): just the style + unit picks — colours, outline
+            // and text-size live in the full Style Studio, not the first-run popup.
+            if (!compact) {
+                Text(text = "Icon style", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "Pick how the speed looks in the status bar. Colours always show in full " +
+                        "here and on the floating bubble. In the status bar it depends on the phone: " +
+                        "some (e.g. Samsung) show your true colours; others (e.g. Pixel) repaint every " +
+                        "app's icon in one colour — that's Android, not the app, and applies on every " +
+                        "screen. On those phones, drag the floating bubble into the bar for full colour.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
             IconStyle.entries.forEach { style ->
                 StyleOptionRow(
                     style = style,
@@ -1054,13 +1059,15 @@ internal fun IconStyleCard(
                 )
             }
             UnitStyleRow(selected = unitStyle, onPick = onUnitStyle)
-            ColorSwatchRow("Icon background", BG_SWATCHES, iconBg, allowAlpha = true, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBgColor)
-            ColorSwatchRow("Text / icon colour", FG_SWATCHES, iconFg, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onFgColor)
-            ColorSwatchRow("Outline", BORDER_SWATCHES, borderColor, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBorderColor)
-            if (android.graphics.Color.alpha(borderColor) != 0) {
-                BorderWidthRow(selected = borderWidth, onPick = onBorderWidth)
+            if (!compact) {
+                ColorSwatchRow("Icon background", BG_SWATCHES, iconBg, allowAlpha = true, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBgColor)
+                ColorSwatchRow("Text / icon colour", FG_SWATCHES, iconFg, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onFgColor)
+                ColorSwatchRow("Outline", BORDER_SWATCHES, borderColor, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBorderColor)
+                if (android.graphics.Color.alpha(borderColor) != 0) {
+                    BorderWidthRow(selected = borderWidth, onPick = onBorderWidth)
+                }
+                IconTextSizeRow(value = iconTextScale, onChange = onTextScale)
             }
-            IconTextSizeRow(value = iconTextScale, onChange = onTextScale)
         }
     }
 }

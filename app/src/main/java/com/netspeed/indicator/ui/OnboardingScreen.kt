@@ -234,8 +234,10 @@ private fun StatusBarPage(
         onBorderWidth = onIconBorderWidth,
         customColorUnlocked = suiteUnlocked,
         onLockedColor = onLockedColor,
+        compact = true,
     )
     Spacer(Modifier.size(14.dp))
+    Bullet("Fine-tune colours, outline & size later in the Style Studio")
     Bullet("No INTERNET permission — data never leaves the device")
 }
 
@@ -280,7 +282,10 @@ private fun BubblePage(clockFn: () -> Float, liveMbps: Float) {
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 8f)),
-                modifier = Modifier.align(Alignment.Center),
+                // Dock the readout to the right edge — the vehicle rides the left of
+                // the diorama, so this keeps the text clear of it (matches the real
+                // scene-right bubble default).
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
             )
         }
         Image(
