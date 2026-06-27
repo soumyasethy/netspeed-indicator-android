@@ -150,6 +150,10 @@ fun SettingsScreen(
     onGrantNotifications: () -> Unit,
     onRequestIgnoreBattery: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onIndicatorMode: (IndicatorMode) -> Unit,
+    onHideOverlayNotice: () -> Unit,
+    hasOverlayPermission: Boolean,
+    onAckOverlayNotice: () -> Unit,
 ) {
     val dark = isSystemInDarkTheme()
     val skin = settings.colorSkin
@@ -307,12 +311,41 @@ fun SettingsScreen(
                 PermissionBanner(onGrant = onGrantNotifications)
             }
 
-            ToggleRow(
-                title = "Show speed in status bar",
-                subtitle = "Live download speed as a status-bar icon",
-                checked = settings.enabled,
-                onCheckedChange = { tap(); onMasterToggle(it) },
-                tierColor = tierColor,
+            val indicatorMode = when {
+                settings.floatingChip && suiteUnlocked -> IndicatorMode.BUBBLE
+                settings.enabled -> IndicatorMode.BAR
+                else -> IndicatorMode.OFF
+            }
+            // One-time nudge: bubble is live (overlay granted) and the user hasn't
+            // dealt with the OS "displaying over other apps" notice yet.
+            AnimatedVisibility(
+                visible = indicatorMode == IndicatorMode.BUBBLE &&
+                    hasOverlayPermission && !settings.overlayNoticeAck,
+            ) {
+                OverlayNoticeBanner(
+                    onTurnOff = { tap(); onHideOverlayNotice(); onAckOverlayNotice() },
+                    onDismiss = { tap(); onAckOverlayNotice() },
+                )
+            }
+            IndicatorModePicker(
+                mode = indicatorMode,
+                suiteUnlocked = suiteUnlocked,
+                onSelect = { m ->
+                    tap()
+                    if (m == IndicatorMode.BUBBLE && !suiteUnlocked) onLockedTap() else onIndicatorMode(m)
+                },
+            )
+            Text(
+                when (indicatorMode) {
+                    IndicatorMode.BUBBLE ->
+                        "Floating bubble — docks in the status bar by default; drag it anywhere."
+                    IndicatorMode.BAR ->
+                        "Status-bar icon by the clock. No overlay, so no “displaying over other apps” notice."
+                    IndicatorMode.OFF -> "Indicator is off."
+                },
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
             )
             ToggleRow(
                 title = "Show upload too",
@@ -400,6 +433,7 @@ fun SettingsScreen(
                     onCheckedChange = { tap(); onHideIconWhenBubble(it) },
                     tierColor = tierColor,
                 )
+                OverlayNoticeCard(onHide = { tap(); onHideOverlayNotice() })
                 ToggleRow(
                     title = "Place bubble anywhere",
                     subtitle = "Dock it over the status bar or half-off any edge. Heads-up: over the " +
@@ -1571,8 +1605,120 @@ private fun ChipPickRow(
     }
 }
 
-/** Quick-dock targets for the floating bubble. */
-enum class BubbleCorner { TOP_LEFT, TOP_RIGHT, CENTRE, BOTTOM_LEFT, BOTTOM_RIGHT }
+/** Quick-dock targets for the floating bubble. NOTCH is the default "clever spot":
+ *  the status bar, just left of the punch-hole / system icons. */
+enum class BubbleCorner { NOTCH, TOP_LEFT, TOP_RIGHT, CENTRE, BOTTOM_LEFT, BOTTOM_RIGHT }
+
+/** Headline indicator choice. BUBBLE = floating chip only; BAR = status-bar icon
+ *  only (no overlay → no system "displaying over other apps" notice). */
+enum class IndicatorMode { OFF, BUBBLE, BAR }
+
+/** Segmented headline switch: one clear choice between the two indicator styles
+ *  (plus Off) instead of juggling separate toggles. */
+@Composable
+private fun IndicatorModePicker(
+    mode: IndicatorMode,
+    suiteUnlocked: Boolean,
+    onSelect: (IndicatorMode) -> Unit,
+) {
+    val options = listOf(
+        IndicatorMode.BUBBLE to (if (suiteUnlocked) "🫧 Bubble" else "🫧 Bubble 🔒"),
+        IndicatorMode.BAR to "📟 Status bar",
+        IndicatorMode.OFF to "Off",
+    )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        options.forEach { (m, label) ->
+            val selected = m == mode
+            Text(
+                label,
+                fontSize = 13.sp,
+                maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold
+                else androidx.compose.ui.text.font.FontWeight.Normal,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else androidx.compose.ui.graphics.Color.Transparent,
+                    )
+                    .selectable(selected = selected, onClick = { onSelect(m) })
+                    .padding(vertical = 10.dp),
+            )
+        }
+    }
+}
+
+/** Honest, one-tap helper for the OS overlay disclosure NetSpeed can't remove. */
+@Composable
+private fun OverlayNoticeCard(onHide: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "“Displaying over other apps” notice",
+            fontSize = 13.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            "Android shows this for ANY app with a floating overlay — NetSpeed can't remove it for you. " +
+                "Tap below, then turn it off once (it stays off).",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+        )
+        OutlinedButton(onClick = onHide, modifier = Modifier.fillMaxWidth()) {
+            Text("Hide the notice")
+        }
+    }
+}
+
+/** One-time prominent nudge so bubble users kill the recurring overlay disclosure
+ *  for good (Android keeps re-posting it; the app can only deep-link the toggle). */
+@Composable
+private fun OverlayNoticeBanner(onTurnOff: () -> Unit, onDismiss: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "Stop the “displaying over other apps” notice",
+            fontSize = 14.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        Text(
+            "Android keeps re-posting it for the floating bubble. Turn it off once and it's " +
+                "gone for good — NetSpeed can't do it for you.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onTurnOff) { Text("Turn it off") }
+            TextButton(onClick = onDismiss) { Text("Dismiss") }
+        }
+    }
+}
 
 /**
  * Precise bubble placement without fighting a fingertip-sized drag target:
@@ -1611,6 +1757,7 @@ private fun BubblePositionPad(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             listOf(
+                BubbleCorner.NOTCH to "◖ Notch",
                 BubbleCorner.TOP_LEFT to "◴ Top-L",
                 BubbleCorner.TOP_RIGHT to "◷ Top-R",
                 BubbleCorner.CENTRE to "◉ Centre",

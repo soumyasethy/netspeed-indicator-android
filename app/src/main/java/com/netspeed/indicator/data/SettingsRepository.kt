@@ -101,6 +101,13 @@ data class Settings(
      *  the dual-icon attempt is then skipped forever on this device, so the OS
      *  never creates its orphan group summary (a blank icon) again. */
     val dualIconsBlocked: Boolean = false,
+    /** First-run smart dock done: the bubble has been auto-placed in its clever
+     *  status-bar spot (left of the punch-hole) once. After that a user drag is
+     *  never overridden. */
+    val chipAutoPlaced: Boolean = false,
+    /** One-time acknowledgement of the "turn off the overlay disclosure" nudge —
+     *  once handled (or dismissed), the banner never nags again. */
+    val overlayNoticeAck: Boolean = false,
 ) {
     fun thresholdsArray(): FloatArray = tierThresholds.toFloatArray()
 }
@@ -166,6 +173,8 @@ class SettingsRepository(private val context: Context) {
             floatingChipY = p[KEY_FLOAT_Y] ?: DEFAULT_CHIP_Y,
             bubbleFreePlacement = p[KEY_FLOAT_FREE] ?: true,
             dualIconsBlocked = p[KEY_DUAL_BLOCKED] ?: false,
+            chipAutoPlaced = p[KEY_CHIP_AUTOPLACED] ?: false,
+            overlayNoticeAck = p[KEY_OVERLAY_NOTICE_ACK] ?: false,
         )
     }
 
@@ -206,6 +215,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setIconBorderColor(c: Int) = edit { it[KEY_ICON_BORDER_COLOR] = c }
     suspend fun setIconBorderWidth(w: Int) = edit { it[KEY_ICON_BORDER_WIDTH] = w.coerceIn(1, 3) }
     suspend fun setDualIconsBlocked(value: Boolean) = edit { it[KEY_DUAL_BLOCKED] = value }
+    suspend fun setChipAutoPlaced(value: Boolean) = edit { it[KEY_CHIP_AUTOPLACED] = value }
+    suspend fun setOverlayNoticeAck(value: Boolean) = edit { it[KEY_OVERLAY_NOTICE_ACK] = value }
+
+    /** Switches the indicator between its two clean presets in one write:
+     *  bubble = floating chip only (status-bar icon off); bar = status-bar icon
+     *  only (no overlay → no "displaying over other apps" system notice). */
+    suspend fun setIndicatorMode(bubble: Boolean) = edit {
+        it[KEY_FLOAT_CHIP] = bubble
+        it[KEY_ENABLED] = !bubble
+    }
     suspend fun setFloatingChip(value: Boolean) = edit { it[KEY_FLOAT_CHIP] = value }
     suspend fun setHideIconWhenBubble(value: Boolean) = edit { it[KEY_HIDE_ICON_BUBBLE] = value }
     suspend fun setFloatingChipScale(v: Float) = edit { it[KEY_FLOAT_SCALE] = v.coerceIn(0.5f, 1.6f) }
@@ -288,6 +307,8 @@ class SettingsRepository(private val context: Context) {
         val KEY_ICON_BORDER_COLOR = intPreferencesKey("icon_border_color")
         val KEY_ICON_BORDER_WIDTH = intPreferencesKey("icon_border_width")
         val KEY_DUAL_BLOCKED = booleanPreferencesKey("dual_icons_blocked")
+        val KEY_CHIP_AUTOPLACED = booleanPreferencesKey("chip_auto_placed")
+        val KEY_OVERLAY_NOTICE_ACK = booleanPreferencesKey("overlay_notice_ack")
         val KEY_FLOAT_CHIP = booleanPreferencesKey("floating_chip")
         val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
         val KEY_FLOAT_FREE = booleanPreferencesKey("bubble_free_placement")

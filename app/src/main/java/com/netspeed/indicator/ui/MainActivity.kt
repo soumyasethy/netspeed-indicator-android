@@ -24,12 +24,15 @@ import com.netspeed.indicator.BuildConfig
 import com.netspeed.indicator.NetSpeedApp
 import com.netspeed.indicator.billing.BillingManager
 import com.netspeed.indicator.billing.EntitlementStore
+import com.netspeed.indicator.core.BubbleDock
 import com.netspeed.indicator.data.SettingsRepository
 import com.netspeed.indicator.data.SpeedBus
+import com.netspeed.indicator.service.FloatingChip
 import com.netspeed.indicator.service.SpeedMeterService
 import com.netspeed.indicator.ui.theme.NetSpeedTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * The app's single screen. Owns the notification-permission flow and wires the
@@ -43,6 +46,9 @@ class MainActivity : ComponentActivity() {
     // Tracks the live POST_NOTIFICATIONS grant so the UI can show a banner / gate
     // the master switch. Recomputed in onResume (the user may toggle it in Settings).
     private var hasNotifPermission by mutableStateOf(true)
+
+    // Drives the one-time "turn off the overlay disclosure" nudge (bubble mode only).
+    private var hasOverlayPermission by mutableStateOf(false)
 
     private val requestNotif =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -197,6 +203,10 @@ class MainActivity : ComponentActivity() {
                     onGrantNotifications = ::requestNotificationPermission,
                     onRequestIgnoreBattery = ::requestIgnoreBatteryOptimizations,
                     onOpenNotificationSettings = ::openAppNotificationSettings,
+                    onIndicatorMode = { mode -> selectIndicatorMode(mode) },
+                    onHideOverlayNotice = ::openOverlayDisclosureSettings,
+                    hasOverlayPermission = hasOverlayPermission,
+                    onAckOverlayNotice = { persist { repo.setOverlayNoticeAck(true) } },
                 )
 
                 if (showPaywall) {
@@ -219,6 +229,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hasNotifPermission = notificationsAllowed()
+        hasOverlayPermission = Settings.canDrawOverlays(this)
     }
 
     override fun onDestroy() {
@@ -326,6 +337,37 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Deep-links to the toggle that silences the OS "[app] is displaying over other
+     * apps" notice. That notification is owned by the system ("android") package, in
+     * a per-app channel — NetSpeed can't cancel it, but it can drop the user one tap
+     * from turning it off. Falls back to the system app's notification list, then the
+     * overlay-permission screen, if the exact channel deep-link is unsupported.
+     */
+    private fun openOverlayDisclosureSettings() {
+        val channelId = "com.android.server.wm.AlertWindowNotification - $packageName"
+        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, "android")
+            .putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+        runCatching { startActivity(intent) }.onFailure {
+            runCatching {
+                startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, "android"),
+                )
+            }.onFailure {
+                runCatching {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName"),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * Quick-dock the bubble: corner presets target the screen extremes (the
      * service-side clamp pulls them to the legal edge for the current placement
      * mode), centre is computed from the display size.
@@ -335,11 +377,80 @@ class MainActivity : ComponentActivity() {
         val (x, y) = when (corner) {
             BubbleCorner.TOP_LEFT -> 0 to 0
             BubbleCorner.TOP_RIGHT -> dm.widthPixels to 0
+            BubbleCorner.NOTCH -> notchLeftDock(repo.settings.first().floatingChipScale)
             BubbleCorner.CENTRE -> dm.widthPixels / 2 - dm.widthPixels / 14 to dm.heightPixels / 2
             BubbleCorner.BOTTOM_LEFT -> 0 to dm.heightPixels
             BubbleCorner.BOTTOM_RIGHT -> dm.widthPixels to dm.heightPixels
         }
         repo.setFloatingChipPos(x, y)
+    }
+
+    /**
+     * The default "clever spot": tucked into the status bar just LEFT of a centred
+     * punch-hole (or left of the right-side system icons if there's no central
+     * cutout). Reads the live [android.view.DisplayCutout] so it lands right on any
+     * phone; geometry lives in the unit-tested [BubbleDock.notchLeft].
+     */
+    private fun notchLeftDock(scale: Float): Pair<Int, Int> {
+        val dm = resources.displayMetrics
+        val d = dm.density
+        val sbId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        val statusBarPx = if (sbId > 0) resources.getDimensionPixelSize(sbId) else (28 * d).roundToInt()
+        val chipH = (FloatingChip.BASE_HEIGHT_DP * scale * d).roundToInt()
+        val chipW = (64 * scale * d).roundToInt()      // compact download-only readout estimate
+        val gap = (8 * d).roundToInt()
+        var cutLeft: Int? = null
+        var cutRight: Int? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.decorView.rootWindowInsets?.displayCutout
+                ?.boundingRects?.firstOrNull { it.top <= statusBarPx }
+                ?.let { cutLeft = it.left; cutRight = it.right }
+        }
+        return BubbleDock.notchLeft(dm.widthPixels, statusBarPx, chipW, chipH, cutLeft, cutRight, gap)
+    }
+
+    /**
+     * Headline indicator chooser (Off / Bubble / Status bar). Bubble and Bar are
+     * mutually-exclusive presets — Bar uses no overlay, so the OS "displaying over
+     * other apps" notice never appears. Bubble auto-docks to the clever spot the
+     * first time and asks for the overlay permission.
+     */
+    private fun selectIndicatorMode(mode: IndicatorMode) {
+        when (mode) {
+            IndicatorMode.OFF -> {
+                persist { repo.setFloatingChip(false); repo.setEnabled(false) }
+                SpeedMeterService.stop(this)
+                SpeedBus.markStopped()
+            }
+            IndicatorMode.BUBBLE -> {
+                persist { repo.setIndicatorMode(bubble = true) }
+                SpeedMeterService.start(this)
+                lifecycleScope.launch {
+                    val s = repo.settings.first()
+                    // Auto-dock to the clever spot only on a fresh bubble that's
+                    // still at the factory position — never clobber a user's drag.
+                    val untouched = s.floatingChipX == com.netspeed.indicator.data.DEFAULT_CHIP_X &&
+                        s.floatingChipY == com.netspeed.indicator.data.DEFAULT_CHIP_Y
+                    if (!s.chipAutoPlaced) {
+                        if (untouched) applyBubblePreset(BubbleCorner.NOTCH)
+                        repo.setChipAutoPlaced(true)
+                    }
+                    if (!Settings.canDrawOverlays(this@MainActivity)) {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:$packageName"),
+                            ),
+                        )
+                    }
+                }
+            }
+            IndicatorMode.BAR -> {
+                persist { repo.setIndicatorMode(bubble = false) }
+                if (notificationsAllowed()) SpeedMeterService.start(this)
+                else requestNotificationPermission()
+            }
+        }
     }
 
     /** Asks the launcher to pin the chosen widget style to the home screen (API 26+). */
