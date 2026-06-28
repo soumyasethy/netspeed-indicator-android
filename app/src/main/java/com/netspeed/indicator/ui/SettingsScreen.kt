@@ -621,7 +621,11 @@ private fun UsageHistorySection(history: List<com.netspeed.indicator.data.DayUsa
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
             }
-            Text(if (expanded) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Icon(
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
         }
         if (expanded && history.isNotEmpty()) {
             val maxBytes = history.maxOf { it.bytes }.coerceAtLeast(1L)
@@ -696,7 +700,11 @@ private fun SectionFold(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 )
             }
-            Text(if (open) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Icon(
+                if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (open) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
         }
         AnimatedVisibility(visible = open) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
