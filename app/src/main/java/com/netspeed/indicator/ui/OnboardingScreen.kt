@@ -211,10 +211,10 @@ private fun StatusBarPage(
     onLockedColor: () -> Unit,
 ) {
     PageTitle("Live speed in your status bar")
-    PageSub("Pick your look now — tap “Use this”. Every preview is the real renderer.")
+    PageSub("Every preview is the real renderer. We start you on a clean default — fine-tune it all later in the Style Studio.")
     Spacer(Modifier.size(16.dp))
-    // The exact Style Studio "Icon style" card — interactive, writes straight to
-    // your settings, so the choice is live before you even finish onboarding.
+    // The exact Style Studio "Icon style" card, but read-only here — a showcase, not
+    // a control, so first-run isn't a wall of choices. Defaults are already applied.
     IconStyleCard(
         selected = settings.iconStyle,
         showCombined = settings.showCombined,
@@ -235,6 +235,7 @@ private fun StatusBarPage(
         customColorUnlocked = suiteUnlocked,
         onLockedColor = onLockedColor,
         compact = true,
+        readOnly = true,
     )
     Spacer(Modifier.size(14.dp))
     Bullet("Fine-tune colours, outline & size later in the Style Studio")

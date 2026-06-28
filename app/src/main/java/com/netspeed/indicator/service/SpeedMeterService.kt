@@ -663,6 +663,12 @@ class SpeedMeterService : LifecycleService() {
                 todayBytes = stored.totalBytes
                 todayPeakBps = stored.peakBytesPerSec
             } else {
+                // Service was down across a midnight roll: file the finished day into
+                // the history before starting fresh — otherwise every restart on a new
+                // day silently discards yesterday and history never grows past 1 day.
+                if (stored.epochDay != 0L && stored.totalBytes > 0L) {
+                    repo.appendDailyHistory(stored.epochDay, stored.totalBytes)
+                }
                 todayEpochDay = today
                 todayBytes = 0L
                 todayPeakBps = 0L

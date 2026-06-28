@@ -1000,6 +1000,7 @@ internal fun IconStyleCard(
     customColorUnlocked: Boolean,
     onLockedColor: () -> Unit,
     compact: Boolean = false,
+    readOnly: Boolean = false,
 ) {
     val down = if (live.running) live.downBytesPerSec else 1_258_291L
     val up = if (live.running) live.upBytesPerSec else 245_760L
@@ -1064,9 +1065,10 @@ internal fun IconStyleCard(
                     preview = previews[style]!!,
                     selected = style == selected,
                     onClick = { onSelect(style) },
+                    interactive = !readOnly,
                 )
             }
-            UnitStyleRow(selected = unitStyle, onPick = onUnitStyle)
+            if (!readOnly) UnitStyleRow(selected = unitStyle, onPick = onUnitStyle)
             if (!compact) {
                 ColorSwatchRow("Icon background", BG_SWATCHES, iconBg, allowAlpha = true, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onBgColor)
                 ColorSwatchRow("Text / icon colour", FG_SWATCHES, iconFg, allowAlpha = false, customUnlocked = customColorUnlocked, onLockedCustom = onLockedColor, onPick = onFgColor)
@@ -1320,6 +1322,7 @@ private fun StyleOptionRow(
     preview: List<androidx.compose.ui.graphics.ImageBitmap>,
     selected: Boolean,
     onClick: () -> Unit,
+    interactive: Boolean = true,
 ) {
     val dark = isSystemInDarkTheme()
     val accent = MaterialTheme.colorScheme.primary
@@ -1328,9 +1331,10 @@ private fun StyleOptionRow(
         else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
 
     Card(
+        // Read-only (onboarding): a non-tappable showcase — no ripple, no selection.
         modifier = Modifier
             .fillMaxWidth()
-            .selectable(selected = selected, onClick = onClick),
+            .then(if (interactive) Modifier.selectable(selected = selected, onClick = onClick) else Modifier),
         border = border,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
@@ -1345,7 +1349,9 @@ private fun StyleOptionRow(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                 }
-                CtaChip(selected = selected, accent = accent)
+                // In read-only mode only the active style shows a "Selected" badge; the
+                // rest carry no "Use this" call-to-action, since nothing is tappable.
+                if (interactive || selected) CtaChip(selected = selected, accent = accent)
             }
         }
     }
@@ -1432,6 +1438,10 @@ private fun CtaChip(selected: Boolean, accent: Color) {
     }
 }
 
+/** Threshold MB/s as a clean string: whole numbers drop the ".0". */
+private fun fmtThreshold(v: Float): String =
+    if (v == v.toInt().toFloat()) v.toInt().toString() else v.toString()
+
 /**
  * Tier editor: rename the five tiers, set their four boundaries (MB/s), and a
  * daily data cap (GB) that drives the Rings widget quota arc. Collapsible to keep
@@ -1466,11 +1476,17 @@ private fun TierEditor(
                 val ths = settings.tierThresholds
                 SpeedTiers.ALL.forEach { tier ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Local edit buffers so half-typed values ("0", "0.", "") aren't
+                        // snapped back by the controlled field — only valid input commits.
+                        var nameText by remember(tier.index) {
+                            mutableStateOf(names.getOrElse(tier.index) { tier.defaultWord })
+                        }
                         OutlinedTextField(
-                            value = names.getOrElse(tier.index) { tier.defaultWord },
+                            value = nameText,
                             onValueChange = { v ->
-                                if (v.isNotBlank()) {
-                                    onNamesChange(names.toMutableList().also { it[tier.index] = v.take(14) })
+                                nameText = v.take(14)
+                                if (nameText.isNotBlank()) {
+                                    onNamesChange(names.toMutableList().also { it[tier.index] = nameText })
                                 }
                             },
                             label = { Text("Tier ${tier.index + 1}") },
@@ -1479,11 +1495,13 @@ private fun TierEditor(
                         )
                         // The boundary BELOW this tier (tiers 1..4 have an onset threshold).
                         if (tier.index in 1..4) {
+                            var thText by remember(tier.index) {
+                                mutableStateOf(fmtThreshold(ths.getOrElse(tier.index - 1) { 0f }))
+                            }
                             OutlinedTextField(
-                                value = ths.getOrElse(tier.index - 1) { 0f }.let {
-                                    if (it == it.toInt().toFloat()) it.toInt().toString() else it.toString()
-                                },
+                                value = thText,
                                 onValueChange = { v ->
+                                    thText = v
                                     val f = v.toFloatOrNull()
                                     if (f != null && f > 0f) {
                                         val updated = ths.toMutableList().also { it[tier.index - 1] = f }
@@ -1492,7 +1510,7 @@ private fun TierEditor(
                                 },
                                 label = { Text("≥ MB/s") },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.width(110.dp),
                             )
                         } else {
@@ -1500,19 +1518,25 @@ private fun TierEditor(
                         }
                     }
                 }
+                var quotaText by remember {
+                    mutableStateOf(
+                        if (settings.dailyQuotaBytes > 0) {
+                            (settings.dailyQuotaBytes / (1024.0 * 1024 * 1024)).let { gb ->
+                                if (gb == gb.toLong().toDouble()) gb.toLong().toString() else "%.1f".format(gb)
+                            }
+                        } else "",
+                    )
+                }
                 OutlinedTextField(
-                    value = if (settings.dailyQuotaBytes > 0) {
-                        (settings.dailyQuotaBytes / (1024.0 * 1024 * 1024)).let { gb ->
-                            if (gb == gb.toLong().toDouble()) gb.toLong().toString() else "%.1f".format(gb)
-                        }
-                    } else "",
+                    value = quotaText,
                     onValueChange = { v ->
+                        quotaText = v
                         val gb = v.toDoubleOrNull()
                         onQuotaChange(if (gb != null && gb > 0) (gb * 1024 * 1024 * 1024).toLong() else 0L)
                     },
                     label = { Text("Daily data cap (GB) — for Rings widget") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -2316,15 +2340,15 @@ private fun TextFormatRow(
                             com.netspeed.indicator.ui.ThemeCanvas(
                                 settings.heroTheme, settings.colorSkin, clockFn, liveMbps,
                             )
-                            // Top-weighted scrim: dark where the text sits, fading to
-                            // clear over the character, which rides the bottom of the
-                            // diorama — so the readout never lands on top of it.
+                            // Soft top-to-bottom scrim for depth; the readout itself sits
+                            // in its own translucent chip below, so it stays legible and
+                            // never visually collides with the animated character no
+                            // matter where the scene's vehicle drifts.
                             Box(
                                 Modifier.fillMaxSize().background(
                                     androidx.compose.ui.graphics.Brush.verticalGradient(
-                                        0f to Color(0xCC000000),
-                                        0.5f to Color(0x40000000),
-                                        1f to Color(0x00000000),
+                                        0f to Color(0x66000000),
+                                        1f to Color(0x14000000),
                                     ),
                                 ),
                             )
@@ -2332,7 +2356,12 @@ private fun TextFormatRow(
                                 fmt,
                                 if (live.running && live.downBytesPerSec > 0) live.downBytesPerSec else 8_808_038L,
                                 if (live.running && live.upBytesPerSec > 0) live.upBytesPerSec else 1_258_291L,
-                                Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
+                                Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0x99000000))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }
                         Text(
