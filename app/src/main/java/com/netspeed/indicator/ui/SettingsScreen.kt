@@ -154,6 +154,7 @@ fun SettingsScreen(
     onHideOverlayNotice: () -> Unit,
     hasOverlayPermission: Boolean,
     onAckOverlayNotice: () -> Unit,
+    onEnableBubble: () -> Unit,
 ) {
     val dark = isSystemInDarkTheme()
     val skin = settings.colorSkin
@@ -347,6 +348,15 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
             )
+            // Bubble chosen but overlay declined → don't leave the app blank.
+            AnimatedVisibility(
+                visible = indicatorMode == IndicatorMode.BUBBLE && !hasOverlayPermission,
+            ) {
+                BubbleOverlayBanner(
+                    onEnable = { tap(); onEnableBubble() },
+                    onUseStatusBar = { tap(); onIndicatorMode(IndicatorMode.BAR) },
+                )
+            }
             ToggleRow(
                 title = "Show upload too",
                 subtitle = if (settings.showCombined) "Icon shows download + upload combined"
@@ -749,6 +759,40 @@ private fun PermissionBanner(onGrant: () -> Unit) {
     }
 }
 
+/**
+ * Shown when Bubble mode is chosen but the overlay permission is missing (e.g.
+ * the user said "not now" on the sheet). Keeps the app useful instead of silently
+ * blank: one tap re-opens the permission sheet, or switch to the no-overlay
+ * status-bar icon.
+ */
+@Composable
+private fun BubbleOverlayBanner(onEnable: () -> Unit, onUseStatusBar: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "Bubble is waiting for permission",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "The floating bubble needs “Display over other apps”. Turn it on — or show your speed in the status bar, no permission needed.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onEnable) { Text("Turn on") }
+            Spacer(Modifier.size(10.dp))
+            TextButton(onClick = onUseStatusBar) { Text("Use status bar") }
+        }
+    }
+}
+
 @Composable
 private fun ToggleRow(
     title: String,
@@ -1015,7 +1059,9 @@ internal fun IconStyleCard(
         unitStyle, borderColor, borderWidth,
     ) {
         renderer.bgColorArgb = iconBg
-        renderer.fgColorArgb = iconFg
+        // Auto (fg alpha 0) previews as white on the fixed dark mock bar; on a real
+        // bar the OS contrasts it. A transparent fg would render invisible glyphs.
+        renderer.fgColorArgb = if (android.graphics.Color.alpha(iconFg) != 0) iconFg else android.graphics.Color.WHITE
         renderer.userScale = iconTextScale
         renderer.unitStyle = unitStyle
         renderer.borderColorArgb = borderColor
@@ -1217,6 +1263,7 @@ private val BG_SWATCHES = listOf(
     0xFF10B981.toInt() to "Green",
 )
 private val FG_SWATCHES = listOf(
+    0 to "Auto",                               // adaptive: OS contrasts it to the bar
     0xFFFFFFFF.toInt() to "White",
     0xFF111318.toInt() to "Black",
     0xFF2563EB.toInt() to "Blue",
@@ -1250,11 +1297,13 @@ private fun ColorSwatchRow(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            swatches.forEach { (argb, _) ->
+            swatches.forEach { (argb, label) ->
+                val isAuto = argb == 0 && label == "Auto"
                 Swatch(
                     fill = if (android.graphics.Color.alpha(argb) == 0) MaterialTheme.colorScheme.surface else Color(argb),
                     selected = argb == selected,
-                    glyph = if (android.graphics.Color.alpha(argb) == 0) "∅" else null,
+                    glyph = if (isAuto) "A" else if (android.graphics.Color.alpha(argb) == 0) "∅" else null,
+                    autoSplit = isAuto,
                     onClick = { pick(argb) },
                 )
             }
@@ -1292,7 +1341,25 @@ private fun ColorSwatchRow(
 }
 
 @Composable
-private fun Swatch(fill: Color, selected: Boolean, glyph: String?, onClick: () -> Unit) {
+private fun Swatch(
+    fill: Color,
+    selected: Boolean,
+    glyph: String?,
+    onClick: () -> Unit,
+    autoSplit: Boolean = false,
+) {
+    // "Auto" reads as adaptive: a diagonal light/dark split says "follows the bar".
+    val bg: Modifier = if (autoSplit) {
+        Modifier.background(
+            Brush.linearGradient(
+                0.5f to Color.White,
+                0.5f to Color(0xFF111318),
+            ),
+            RoundedCornerShape(8.dp),
+        )
+    } else {
+        Modifier.background(fill, RoundedCornerShape(8.dp))
+    }
     Box(
         modifier = Modifier
             .size(30.dp)
@@ -1302,11 +1369,19 @@ private fun Swatch(fill: Color, selected: Boolean, glyph: String?, onClick: () -
                 if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                 RoundedCornerShape(8.dp),
             )
-            .background(fill, RoundedCornerShape(8.dp))
+            .then(bg)
             .selectable(selected = selected, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (glyph != null) Text(glyph, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+        if (glyph != null) {
+            Text(
+                glyph,
+                fontSize = 13.sp,
+                fontWeight = if (autoSplit) FontWeight.Bold else FontWeight.Normal,
+                // On the split swatch a mid-grey "A" reads on both halves.
+                color = if (autoSplit) Color(0xFF808080) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            )
+        }
     }
 }
 

@@ -43,10 +43,11 @@ data class Settings(
     /** Whole-app colour skin (palette + hero gradient + font). */
     val colorSkin: ColorSkin = ColorSkin.DEFAULT,
     /** Status-bar icon background ARGB (0 = transparent) and glyph colour.
-     *  Default ships transparent + white glyphs (a shadow halo keeps them legible
-     *  on any bar / wallpaper) — the cleanest out-of-box look. */
+     *  Default ships transparent + Auto glyphs: the icon is sent as an alpha-mask
+     *  so Android contrasts it against the live status bar (dark-on-light /
+     *  light-on-dark), fixing white-on-white. 0 = Auto. */
     val iconBgColor: Int = 0,
-    val iconFgColor: Int = 0xFFFFFFFF.toInt(),
+    val iconFgColor: Int = 0,   // 0 = Auto (adaptive)
     /** User icon text-size multiplier (0.8–1.4), on top of the system font scale. */
     val iconTextScale: Float = 1f,
     /** Hide the status-bar icon after ~30 s without traffic (panel row stays). */
@@ -117,6 +118,13 @@ data class Settings(
     /** One-time acknowledgement of the "turn off the overlay disclosure" nudge —
      *  once handled (or dismissed), the banner never nags again. */
     val overlayNoticeAck: Boolean = false,
+    /** Status-bar mode's one-time defaults (unit-below + max text size for the
+     *  most readable tiny icon) have been applied. Guards against clobbering a
+     *  user's later tweaks every time they re-select Status bar. */
+    val statusBarDefaultsApplied: Boolean = false,
+    /** We've launched the POST_NOTIFICATIONS system prompt at least once. Lets us
+     *  tell "never asked" from "permanently denied" and route to app settings. */
+    val notifRequested: Boolean = false,
 ) {
     fun thresholdsArray(): FloatArray = tierThresholds.toFloatArray()
 }
@@ -154,7 +162,7 @@ class SettingsRepository(private val context: Context) {
             dailyQuotaBytes = p[KEY_QUOTA_BYTES] ?: 0L,
             colorSkin = ColorSkin.fromKey(p[KEY_COLOR_SKIN]),
             iconBgColor = p[KEY_ICON_BG] ?: 0,
-            iconFgColor = p[KEY_ICON_FG] ?: 0xFFFFFFFF.toInt(),
+            iconFgColor = p[KEY_ICON_FG] ?: 0,
             iconTextScale = p[KEY_ICON_TEXT_SCALE] ?: 1f,
             autoHideIdle = p[KEY_AUTO_HIDE_IDLE] ?: false,
             iconUnitStyle = UnitStyle.fromKey(p[KEY_ICON_UNIT_STYLE]),
@@ -184,6 +192,8 @@ class SettingsRepository(private val context: Context) {
             dualIconsBlocked = p[KEY_DUAL_BLOCKED] ?: false,
             chipAutoPlaced = p[KEY_CHIP_AUTOPLACED] ?: false,
             overlayNoticeAck = p[KEY_OVERLAY_NOTICE_ACK] ?: false,
+            statusBarDefaultsApplied = p[KEY_SB_DEFAULTS] ?: false,
+            notifRequested = p[KEY_NOTIF_REQUESTED] ?: false,
         )
     }
 
@@ -226,6 +236,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDualIconsBlocked(value: Boolean) = edit { it[KEY_DUAL_BLOCKED] = value }
     suspend fun setChipAutoPlaced(value: Boolean) = edit { it[KEY_CHIP_AUTOPLACED] = value }
     suspend fun setOverlayNoticeAck(value: Boolean) = edit { it[KEY_OVERLAY_NOTICE_ACK] = value }
+    suspend fun setStatusBarDefaultsApplied(value: Boolean) = edit { it[KEY_SB_DEFAULTS] = value }
+    suspend fun setNotifRequested(value: Boolean) = edit { it[KEY_NOTIF_REQUESTED] = value }
 
     /** Switches the indicator between its two clean presets in one write:
      *  bubble = floating chip only (status-bar icon off); bar = status-bar icon
@@ -318,6 +330,8 @@ class SettingsRepository(private val context: Context) {
         val KEY_DUAL_BLOCKED = booleanPreferencesKey("dual_icons_blocked")
         val KEY_CHIP_AUTOPLACED = booleanPreferencesKey("chip_auto_placed")
         val KEY_OVERLAY_NOTICE_ACK = booleanPreferencesKey("overlay_notice_ack")
+        val KEY_SB_DEFAULTS = booleanPreferencesKey("status_bar_defaults_applied")
+        val KEY_NOTIF_REQUESTED = booleanPreferencesKey("notif_requested")
         val KEY_FLOAT_CHIP = booleanPreferencesKey("floating_chip")
         val KEY_HIDE_ICON_BUBBLE = booleanPreferencesKey("hide_icon_when_bubble")
         val KEY_FLOAT_FREE = booleanPreferencesKey("bubble_free_placement")

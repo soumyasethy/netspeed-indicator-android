@@ -27,6 +27,7 @@ import com.netspeed.indicator.billing.EntitlementStore
 import com.netspeed.indicator.core.BubbleDock
 import com.netspeed.indicator.data.SettingsRepository
 import com.netspeed.indicator.data.SpeedBus
+import com.netspeed.indicator.data.UnitStyle
 import com.netspeed.indicator.service.FloatingChip
 import com.netspeed.indicator.service.SpeedMeterService
 import com.netspeed.indicator.ui.theme.NetSpeedTheme
@@ -49,6 +50,14 @@ class MainActivity : ComponentActivity() {
 
     // Drives the one-time "turn off the overlay disclosure" nudge (bubble mode only).
     private var hasOverlayPermission by mutableStateOf(false)
+
+    // Shows the rationale dialog before we hand off to the bare system overlay
+    // settings screen — the user reads what "display over other apps" unlocks first.
+    private var showOverlayRationale by mutableStateOf(false)
+
+    // Shows the notification rationale before the POST_NOTIFICATIONS system prompt
+    // (Status-bar mode draws the speed as a silent notification icon).
+    private var showNotifRationale by mutableStateOf(false)
 
     private val requestNotif =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -162,14 +171,7 @@ class MainActivity : ComponentActivity() {
                             SpeedMeterService.start(this)
                         }
                         // The bubble needs the system overlay permission once.
-                        if (value && !android.provider.Settings.canDrawOverlays(this)) {
-                            startActivity(
-                                Intent(
-                                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    android.net.Uri.parse("package:$packageName"),
-                                ),
-                            )
-                        }
+                        if (value) requestOverlayPermission()
                     },
                     onFloatingChipScale = { v -> persist { repo.setFloatingChipScale(v) } },
                     onHideIconWhenBubble = { v -> persist { repo.setHideIconWhenBubble(v) } },
@@ -225,7 +227,26 @@ class MainActivity : ComponentActivity() {
                     onHideOverlayNotice = ::openOverlayDisclosureSettings,
                     hasOverlayPermission = hasOverlayPermission,
                     onAckOverlayNotice = { persist { repo.setOverlayNoticeAck(true) } },
+                    onEnableBubble = { requestOverlayPermission() },
                 )
+
+                if (showOverlayRationale) {
+                    OverlayPermissionSheet(
+                        onAllow = { showOverlayRationale = false; openOverlaySettings() },
+                        onUseStatusBar = {
+                            showOverlayRationale = false
+                            selectIndicatorMode(IndicatorMode.BAR)
+                        },
+                        onDismiss = { showOverlayRationale = false },
+                    )
+                }
+
+                if (showNotifRationale) {
+                    NotificationPermissionSheet(
+                        onAllow = { launchNotifRequest() },
+                        onDismiss = { showNotifRationale = false },
+                    )
+                }
 
                 if (showPaywall) {
                     PaywallSheet(
@@ -279,17 +300,9 @@ class MainActivity : ComponentActivity() {
         SpeedMeterService.start(this)
         // The bubble ships enabled by default, but the overlay permission can only
         // be granted by the user — ask at the natural moment (turning the meter on)
-        // instead of silently never showing the bubble.
+        // via the rationale dialog, instead of silently never showing the bubble.
         lifecycleScope.launch {
-            val wantsBubble = repo.settings.first().floatingChip
-            if (wantsBubble && !android.provider.Settings.canDrawOverlays(this@MainActivity)) {
-                startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName"),
-                    ),
-                )
-            }
+            if (repo.settings.first().floatingChip) requestOverlayPermission()
         }
     }
 
@@ -310,6 +323,26 @@ class MainActivity : ComponentActivity() {
 
     // --- permissions -----------------------------------------------------------
 
+    /**
+     * Ask for the overlay permission the friendly way: if it's missing, raise our
+     * own rationale dialog first (explains + pictures what it unlocks). "Allow"
+     * there calls [openOverlaySettings]. No-op when already granted. Single entry
+     * point for every place that needs the bubble's overlay.
+     */
+    private fun requestOverlayPermission() {
+        if (!Settings.canDrawOverlays(this)) showOverlayRationale = true
+    }
+
+    /** Hands off to the system "Display over other apps" screen for this app. */
+    private fun openOverlaySettings() {
+        startActivity(
+            Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName"),
+            ),
+        )
+    }
+
     private fun notificationsAllowed(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(
@@ -319,9 +352,33 @@ class MainActivity : ComponentActivity() {
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
+            showNotifRationale = true
         } else {
             enableIndicator()
+        }
+    }
+
+    /**
+     * Sheet "Allow" → fire the system prompt. If it's already been permanently
+     * denied (Android won't show the prompt again), route to the app's
+     * notification settings instead so the user still has a way to turn it on.
+     */
+    private fun launchNotifRequest() {
+        showNotifRationale = false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            enableIndicator()
+            return
+        }
+        lifecycleScope.launch {
+            val asked = repo.settings.first().notifRequested
+            val canPrompt = !asked ||
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+            if (canPrompt) {
+                repo.setNotifRequested(true)
+                requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                openAppNotificationSettings()
+            }
         }
     }
 
@@ -456,28 +513,41 @@ class MainActivity : ComponentActivity() {
             IndicatorMode.BUBBLE -> {
                 persist { repo.setIndicatorMode(bubble = true) }
                 SpeedMeterService.start(this)
+                // Ask for the overlay permission FIRST, synchronously, and never gate
+                // it behind the auto-dock work below. It used to live at the tail of
+                // that coroutine, so on first run any hiccup in applyBubblePreset()
+                // swallowed the prompt entirely — the bubble silently never appeared
+                // until the user toggled Off→Bubble again (which skipped the dock
+                // block). Requesting it here, while the activity is unquestionably
+                // resumed from the user's tap, makes the prompt reliable on first run.
+                requestOverlayPermission()
+                // Auto-dock to the clever spot only on a fresh bubble that's still at
+                // the factory position — never clobber a user's drag. Isolated in its
+                // own guarded coroutine so a failure here can't affect the prompt above.
                 lifecycleScope.launch {
-                    val s = repo.settings.first()
-                    // Auto-dock to the clever spot only on a fresh bubble that's
-                    // still at the factory position — never clobber a user's drag.
-                    val untouched = s.floatingChipX == com.netspeed.indicator.data.DEFAULT_CHIP_X &&
-                        s.floatingChipY == com.netspeed.indicator.data.DEFAULT_CHIP_Y
-                    if (!s.chipAutoPlaced) {
-                        if (untouched) applyBubblePreset(BubbleCorner.NOTCH)
-                        repo.setChipAutoPlaced(true)
-                    }
-                    if (!Settings.canDrawOverlays(this@MainActivity)) {
-                        startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:$packageName"),
-                            ),
-                        )
+                    runCatching {
+                        val s = repo.settings.first()
+                        val untouched = s.floatingChipX == com.netspeed.indicator.data.DEFAULT_CHIP_X &&
+                            s.floatingChipY == com.netspeed.indicator.data.DEFAULT_CHIP_Y
+                        if (!s.chipAutoPlaced) {
+                            if (untouched) applyBubblePreset(BubbleCorner.NOTCH)
+                            repo.setChipAutoPlaced(true)
+                        }
                     }
                 }
             }
             IndicatorMode.BAR -> {
-                persist { repo.setIndicatorMode(bubble = false) }
+                persist {
+                    repo.setIndicatorMode(bubble = false)
+                    // One-time status-bar defaults: the tiny icon reads best with the
+                    // unit stacked below the number and the text at max size. Applied
+                    // once so it never clobbers a user's later tweaks.
+                    if (!repo.settings.first().statusBarDefaultsApplied) {
+                        repo.setIconUnitStyle(UnitStyle.BELOW)
+                        repo.setIconTextScale(STATUS_BAR_MAX_TEXT_SCALE)
+                        repo.setStatusBarDefaultsApplied(true)
+                    }
+                }
                 if (notificationsAllowed()) SpeedMeterService.start(this)
                 else requestNotificationPermission()
             }
@@ -503,5 +573,11 @@ class MainActivity : ComponentActivity() {
     // before the activity is destroyed must still finish writing to DataStore.
     private inline fun persist(crossinline block: suspend () -> Unit) {
         (application as NetSpeedApp).appScope.launch { block() }
+    }
+
+    private companion object {
+        // Top of the "Icon text size" slider (valueRange 0f..1.4f) — the most
+        // readable size for the tiny status-bar glyph.
+        const val STATUS_BAR_MAX_TEXT_SCALE = 1.4f
     }
 }

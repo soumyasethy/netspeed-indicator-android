@@ -341,12 +341,17 @@ class SpeedMeterService : LifecycleService() {
 
         iconRenderer.fontScale = resources.configuration.fontScale   // honor system font size
         iconRenderer.userScale = settings.iconTextScale              // user size override
-        // Colour-true bars (One UI) render bitmap small icons verbatim → the
-        // full-colour chip applies; tinted bars get bare max-contrast glyphs.
+        // Auto (transparent fg + transparent bg): ship a bare alpha-mask so the OS
+        // contrasts it against the live status bar — the only way to fix white-on-
+        // white, since an app can't read the bar's colour. Otherwise on One UI we
+        // render the bitmap verbatim (true colour); a picked colour won't adapt.
+        val adaptiveBarIcon =
+            Color.alpha(settings.iconFgColor) == 0 && Color.alpha(settings.iconBgColor) == 0
         iconRenderer.colorTrue =
-            android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+            android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true) && !adaptiveBarIcon
         iconRenderer.bgColorArgb = settings.iconBgColor
-        // Glyphs must never go transparent in the bar — fall back to white.
+        // Alpha-mask path ignores RGB (OS tints by alpha); white is a safe fill and
+        // also the fallback when a transparent colour is paired with an opaque chip.
         iconRenderer.fgColorArgb =
             if (Color.alpha(settings.iconFgColor) != 0) settings.iconFgColor else Color.WHITE
         iconRenderer.unitStyle = settings.iconUnitStyle
